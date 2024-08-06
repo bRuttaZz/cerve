@@ -31,7 +31,7 @@ void test_launch(struct Server * server) {
 
 void test_server_constructor() {
     struct Server test_server = server_constructor(
-        AF_INET, SOCK_STREAM, 0, 8001, 10, INADDR_ANY, test_launch
+        AF_INET, SOCK_STREAM, 0, 8001, 2, INADDR_ANY, 1, test_launch
     );
     test_server.launch(&test_server);
 }

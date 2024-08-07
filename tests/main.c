@@ -1,4 +1,3 @@
-
 void test_server_constructor(void);
 
 int main() {

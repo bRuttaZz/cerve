@@ -23,7 +23,7 @@ void _handle_sigterm(int sig);
 @param socket_type - type of socket to be used (SOCK_STREAM , SOCK_DGRAM, etc)
 @param protocol - Protocol to be used (if zero the OS will select the default one
 based on you domain and service preference)
-@param port - local port to listen for
+@param port - local port to listen for (set zero to get an ephemeral port)
 @param backlog - socket backlog
 @param interface - network interface to bind the socket
 @params global_server - if set to non-zero the created server will be referenced globally and
@@ -66,11 +66,22 @@ struct Server server_constructor(
     int bind_resp = bind(server.socket, (struct sockaddr *)&server.address, sizeof(server.address));
     if (bind_resp < 0){
         char error_message[75];
-        sprintf(error_message, "Failed to bind socket (%d) on port %d! \nerror : %d\n", server.socket, port, bind_resp);
+        sprintf(error_message, "Failed to bind socket (%d) on port %d! error : %d\n", server.socket, port, bind_resp);
         perror(error_message);
         exit(2);
     };
-    // that long awaited listen part
+    if (server.port == 0) {
+        // Get the assigned port number
+        int addr_len = sizeof(server.address);
+        if (getsockname(server.socket, (struct sockaddr *)&server.address, (socklen_t *)&addr_len) < 0) {
+            perror("failed to get the ephemeral port number assigned!");
+            close(server.socket);
+            exit(1);
+        }
+        server.port = ntohs(server.address.sin_port);
+    }
+
+    // that listen part
     int listen_resp = listen(server.socket, server.backlog);
     if (listen_resp < 0) {
         char error_message[75];
@@ -118,11 +129,12 @@ int is_server_alive(struct Server * server) {
         return 0;
     }
     char buffer[1];
+    errno = 0;
     int resp = recv(server->socket, buffer, sizeof(buffer), MSG_PEEK);
     if (resp == 0) return 0;
     else if (resp <= 0) {
-        if (errno == EAGAIN || errno == EWOULDBLOCK) {
-            // No data available right now, but the socket is still open
+        if (errno == EAGAIN || errno == EWOULDBLOCK || errno == ENOTCONN) {
+            // No data available | the socket is not connected rn, but the socket is still open
             return 1;
         }
         return  0;

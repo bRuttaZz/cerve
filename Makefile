@@ -14,8 +14,9 @@ help:	## Show all Makefile targets.
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}'
 
 test: 	## run test cases
+	@echo -e "Compiling test cases.."
 	$(CC) $(CFLAGS) -o test_$(EXEC) $(TESTS) $(SRCS) -g
-	@echo -e "\nExecuting the test cases..!"
+	@echo -e "\nExecuting the test cases..!\n"
 	@./test_$(EXEC)
 
 build: 	## Build cerve

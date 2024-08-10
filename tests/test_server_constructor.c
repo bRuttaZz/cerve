@@ -21,9 +21,12 @@ void _launch(struct Server * server) {
     char buffer[1024];
     char response_msg[] = "ok";
     int bytes_read;
+    char msgs[200];
 
     // listen for request
-    printf("[launch thread] waiting for new socket connection at port %d ..\n", server->port);
+
+    sprintf(msgs,"[launch thread] waiting for new socket connection at port %d ..\n", server->port);
+    g_logger.info(msgs);
 
     pthread_mutex_lock(&client_read_mutex);
     g_port = server->port;
@@ -31,14 +34,15 @@ void _launch(struct Server * server) {
     pthread_mutex_unlock(&client_read_mutex);                   // unlock after server is ready to listen
 
     new_sock = accept(server->socket, (struct sockaddr *)&server->address, (socklen_t *)&address_len);
-    printf("[launch thread] got new connection..\n");
+    g_logger.debug("[launch thread] got new connection..\n");
 
     bytes_read = read(new_sock, buffer, 1024);
     if (bytes_read < 0) {
-        perror("[launch thread] Error reading data from socket\n");
+        g_logger.error("[launch thread] Error reading data from socket\n");
         exit(-1);
     }
-    printf("[launch thread] got message : (%d)\n", bytes_read);
+    sprintf(msgs, "[launch thread] got message : (%d)\n", bytes_read);
+    g_logger.debug(msgs);
     write(new_sock, response_msg, strlen(response_msg));
 
     // wait to the acquire the lock (only for test server (otherwise the port enter into `TIME_WAIT` state))
@@ -46,7 +50,7 @@ void _launch(struct Server * server) {
 
     close(new_sock);
     server_destructor(server);
-    printf("[launch thread] reponse wrote and connection closed!\n");
+    g_logger.info("[launch thread] reponse wrote and connection closed!\n");
 }
 
 void* _listen_thread(void * _) {
@@ -58,14 +62,16 @@ void* _listen_thread(void * _) {
 }
 
 void test_server_constructor() {
-    printf("[TEST] testing server construct..\n");
+    // g_logger.level = 3;
+    g_logger.info("[TEST] testing server construct..\n");
     pthread_t thread_id;
+    char msgs[200];
 
     int thread_resp = pthread_create(&thread_id, NULL, _listen_thread, NULL);
     if (thread_resp != 0) {
         char error_msg[50] ;
         sprintf(error_msg, "[TEST] error spin server thread! [%d]", thread_resp);
-        perror(error_msg);
+        g_logger.error(error_msg);
         exit(-1);
     }
 
@@ -76,17 +82,18 @@ void test_server_constructor() {
     char resp[3];
     char port[5];
     sprintf(port, "%d", g_port);
-    printf("[TEST] sending test message to server..\n");
+    g_logger.info("[TEST] sending test message to server..\n");
     raise_http_request("localhost", port, "/", "", "GET", resp, 3); // raise request
-    printf("[TEST] message received from thread : %s\n", resp);
+    sprintf(msgs, "[TEST] message received from thread : %s\n", resp);
+    g_logger.info(msgs);
     pthread_mutex_unlock(&client_read_mutex);                   // unlock the mutex
     // (usage of mutex: only for removing the testserver issue related to port `TIME_WAIT` state)
 
 
     thread_resp = pthread_join(thread_id, NULL);
     if (thread_resp !=0) {
-        perror("[TEST] error closing server thread!\n");
+        g_logger.error("[TEST] error closing server thread!\n");
         exit(-1);
     }
-    printf("[TEST] SERVER CONSTRUCT ✅\n\n");
+    g_logger.info("[TEST] SERVER CONSTRUCT ✅\n\n");
 }

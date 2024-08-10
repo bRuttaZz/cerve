@@ -2,6 +2,30 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+
+// logger
+// log becomes detailed as increaing the level (0-> error)
+enum LogLevel {
+    LOG_LEVEL_ERROR,
+    LOG_LEVEL_WARNING,
+    LOG_LEVEL_INFO,
+    LOG_LEVEL_DEBUG,
+};
+
+struct Logger {
+    enum LogLevel level;
+    void (*debug) (const char* message);
+    void (*info) (const char* message);
+    void (*warning) (const char* message);
+    void (*error) (const char* message);
+};
+
+extern struct Logger g_logger;
+
+
+
+// Server utils
+
 /**
 @brief a primitve function to raise an http request meant for testing purposes
 @param hostname - hostname or ip address to be resolved

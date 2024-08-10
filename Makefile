@@ -1,12 +1,34 @@
+# configs
+DEBUG = true
 CC = gcc
 
-CFLAGS = -Wall -I./include
+CFLAGS = -I./include
+
+# for wayland
+WAYLAND_INCS = wayland-client
+CFLAGS += $(shell pkg-config --cflags $(WAYLAND_INCS) --libs $(WAYLAND_INCS) )
+
+# for ffmpeg
+FFMPEG_INCS = libavformat libavcodec libavutil
+CFLAGS += $(shell pkg-config --cflags $(FFMPEG_INCS) --libs $(FFMPEG_INCS) )
+
+# gnu linux specials
+CFLAGS += -D_GNU_SOURCE
+
+
+ifeq ($(DEBUG), true)
+	CFLAGS += -Wall
+	CFLAGS += -g
+else
+	CFLAGS += -02
+endif
+
 
 # executable name
 EXEC = cerve
 
 ENTRY_POINT = src/main.c
-SRCS = $(foreach dir, src/lib,$(wildcard $(dir)/*.c))
+SRCS = $(foreach dir, src/lib src/lib/utils src/lib/server src/lib/video, $(wildcard $(dir)/*.c))
 TESTS += $(foreach dir, tests, $(wildcard $(dir)/*.c))
 
 

@@ -1,5 +1,6 @@
 
-#include "../../include/server.h"
+#include "../../../include/server.h"
+#include "../../../include/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
@@ -38,7 +39,7 @@ struct Server server_constructor(
     int global_server, void (*launch)(struct Server *)
 ) {
     if (global_server && is_server_alive(g_running_server)) {
-        perror("Attempt to create new server, while one is already running..");
+        g_logger.error("Attempt to create new server, while one is already running..");
         exit(-1);
     }
 
@@ -59,7 +60,7 @@ struct Server server_constructor(
     if (server.socket <= 0) {
         char error_message[50];
         sprintf(error_message, "Failed to create socket : %d \n", server.socket);
-        perror(error_message);
+        g_logger.error(error_message);
         exit(1);
     }
 
@@ -67,14 +68,14 @@ struct Server server_constructor(
     if (bind_resp < 0){
         char error_message[75];
         sprintf(error_message, "Failed to bind socket (%d) on port %d! error : %d\n", server.socket, port, bind_resp);
-        perror(error_message);
+        g_logger.error(error_message);
         exit(2);
     };
     if (server.port == 0) {
         // Get the assigned port number
         int addr_len = sizeof(server.address);
         if (getsockname(server.socket, (struct sockaddr *)&server.address, (socklen_t *)&addr_len) < 0) {
-            perror("failed to get the ephemeral port number assigned!");
+            g_logger.error("failed to get the ephemeral port number assigned!");
             close(server.socket);
             exit(1);
         }
@@ -86,7 +87,7 @@ struct Server server_constructor(
     if (listen_resp < 0) {
         char error_message[75];
         sprintf(error_message, "Error listening to address (port: %d)\nerror : %d\n", port, listen_resp);
-        perror(error_message);
+        g_logger.error(error_message);
         exit(3);
     }
 
@@ -96,12 +97,12 @@ struct Server server_constructor(
     // adding SIGINT and SIGTERM handlers
     if (global_server) {
         if (signal(SIGTERM, _handle_sigterm) == SIG_ERR) {
-            perror("Unable to catch SIGTERM");
+            g_logger.error("Unable to catch SIGTERM");
             exit(-1);
         }
 
         if (signal(SIGINT, _handle_sigint) == SIG_ERR) {
-            perror("Unable to catch SIGINT");
+            g_logger.error("Unable to catch SIGINT");
             exit(-1);
         }
     }
@@ -143,13 +144,13 @@ int is_server_alive(struct Server * server) {
 }
 
 void _handle_sigterm(int sig) {
-    printf("Recieving SIGTERM signal. Exiting gracefully...\n");
+    g_logger.error("Recieving SIGTERM signal. Exiting gracefully...");
     server_destructor(g_running_server);
     exit(0);
 }
 
 void _handle_sigint(int sig) {
-    printf("Receiving SIGINT signal (Ctrl+C). Exiting gracefully...\n");
+    g_logger.error("Receiving SIGINT signal (Ctrl+C). Exiting gracefully...");
     server_destructor(g_running_server);
     exit(0);
 }

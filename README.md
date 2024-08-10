@@ -45,3 +45,7 @@ flowchart TD
   stp3 --> stp4[AVFrames are collected to create AVPackets]
 
 ```
+
+
+
+gdbus call --session            --dest org.freedesktop.portal.Desktop            --object-path /org/freedesktop/portal/desktop            --method org.freedesktop.portal.Screenshot.Screenshot            "{}" "{'filename': <'/home/bruttazz/screenshot.png'>, 'interactive': <false>}"

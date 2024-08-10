@@ -2,6 +2,9 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#include <libavformat/avformat.h>
+
+
 
 // logger
 // log becomes detailed as increaing the level (0-> error)
@@ -39,3 +42,13 @@ void raise_http_request(char *hostname, char *port, char *path, char *req_text, 
 
 
 #endif /* UTILS_H */
+
+
+// Screen capture utils
+
+/**
+@brief save avframe (for testing)
+@param frame - avframe to be saved as png
+@param filename - path to pnf file
+*/
+int test_save_av_frame(AVFrame *frame, const char* filename);

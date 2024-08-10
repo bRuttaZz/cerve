@@ -19,8 +19,10 @@ struct {
     // global wayland objects
     struct wl_display *wl_display;
     struct wl_registry *wl_registry;
+    uint32_t wl_registry_id;
     struct wl_compositor *wl_compositor;
     struct wl_shm *wl_shm;
+    uint32_t wl_shm_id;
     struct wl_surface *wl_surface;
     struct wl_buffer *wl_buffer;
 
@@ -33,11 +35,27 @@ struct {
     struct wl_shm_pool *shm_pool;
     uint32_t *wayland_data;         // wl memory mapped place to store data
 
+    int is_format_supported;
 } typedef WayLandFrameCaptureContext ;
 
 
 // global wayland client session object
-WayLandFrameCaptureContext g_wayland_context = {};
+WayLandFrameCaptureContext g_wayland_context = {.is_format_supported=0, .wl_shm_id=99999, .wl_registry_id=99999};
+
+
+// wayland registry handlers
+static void _registry_handler(void *data, struct wl_registry *registry, uint32_t id, const char *interface, uint32_t version);
+static void _registry_remover(void *data, struct wl_registry *registry, uint32_t id);
+static void _shm_format_handler(void *data, struct wl_shm *wl_shm, uint32_t format);
+
+static const struct wl_registry_listener registry_listener = {
+    .global=_registry_handler,
+    .global_remove=_registry_remover
+};
+
+static struct wl_shm_listener shm_listener = {
+    .format = _shm_format_handler
+};
 
 // Callback functions for registry events
 // registry handler
@@ -46,25 +64,31 @@ static void _registry_handler(void *data, struct wl_registry *registry, uint32_t
         g_wayland_context.wl_compositor = wl_registry_bind(registry, id, &wl_compositor_interface, 1);
     } else if (strcmp(interface, wl_shm_interface.name) == 0) {
         g_wayland_context.wl_shm = wl_registry_bind(registry, id, &wl_shm_interface, 1);
+        g_wayland_context.wl_shm_id = id;
     }
 }
-
 static void _registry_remover(void *data, struct wl_registry *registry, uint32_t id) {
     // do garbage collection things
-    g_logger.error("[wayland_screen_grabber] wayland screen capture interrupted!");
-    exit(-1);
+    if (id == g_wayland_context.wl_registry_id || id == g_wayland_context.wl_shm_id) {
+        g_logger.error("[wayland_screen_grabber] wayland screen capture interrupted!");
+        exit(-1);
+    }
+}
+// Callback functions for wl_shm events
+static void _shm_format_handler(void *data, struct wl_shm *wl_shm, uint32_t format) {
+    if (WL_SHM_FORMAT_ARGB8888 == format)
+        g_wayland_context.is_format_supported = 1;
 }
 
-static const struct wl_registry_listener registry_listener = {
-    _registry_handler,
-    _registry_remover
-};
 
-/**
-To initialize wayland client
-get registry and add registry event handler to it
-*/
-void _initialize_wayland() {
+
+
+// setup wayland screen capture
+void wayland_setup_screen_cap(const int width, const int height) {
+
+    g_logger.info("Initializing Wayland screen grabber..");
+
+    // To initialize wayland client (binding registry)
     errno = 0;
     g_wayland_context.wl_display = wl_display_connect(NULL);
     if (g_wayland_context.wl_display == NULL) {
@@ -76,18 +100,22 @@ void _initialize_wayland() {
     g_wayland_context.wl_registry = wl_display_get_registry(g_wayland_context.wl_display);
     wl_registry_add_listener(g_wayland_context.wl_registry, &registry_listener, NULL);
     wl_display_roundtrip(g_wayland_context.wl_display);
-}
+    wl_shm_add_listener(g_wayland_context.wl_shm, &shm_listener, NULL);
+    wl_display_roundtrip(g_wayland_context.wl_display);
+    if (!g_wayland_context.is_format_supported) {
+        g_logger.error("ARGB is not supported by wayland compositor! (currently I'm too lazy to support other pix_fmts");
+        wayland_cleanup_screen_cap();
+        exit(-1);
+    }
+    shm_listener.format = NULL;
 
-
-// setup wayland screen capture
-void wayland_setup_screen_cap(const int width, const int height) {
-    g_logger.info("Initializing Wayland screen grabber..");
-    _initialize_wayland();
+    // setting up other listeners
     g_wayland_context.frame_height = height;
-    g_wayland_context.frame_width = height;
-    g_wayland_context.frame_stride = width * 4;                             // 4 bytes per pixel (ARGB) WL_SHM_FORMAT_ARGB8888
+    g_wayland_context.frame_width = width;
+    g_wayland_context.frame_stride = width * DEF_VIDEO_STRIDE_CHANNELS;
     g_wayland_context.frame_size = g_wayland_context.frame_stride * height;
-    // get shared file descriptor (to work with wayland)
+
+    // create an shared file descriptor (to work with wayland)
     g_wayland_context.frame_shm_fd = memfd_create("wayland-shm", MFD_ALLOW_SEALING);
     if (g_wayland_context.frame_shm_fd == -1) {
         g_logger.error("[wayland_screen_grabber] memfd_create failed!");
@@ -99,7 +127,7 @@ void wayland_setup_screen_cap(const int width, const int height) {
         exit(-1);
     }
 
-    // wayland img data buffer
+    // map memory buffer to that shared memory fd
     g_wayland_context.wayland_data = mmap(
         NULL, g_wayland_context.frame_size, PROT_READ | PROT_WRITE, MAP_SHARED,
         g_wayland_context.frame_shm_fd, 0
@@ -109,10 +137,13 @@ void wayland_setup_screen_cap(const int width, const int height) {
         close(g_wayland_context.frame_shm_fd);
         exit(-1);
     }
+
+    // binding wl_shm with newly created shm_fd
     g_wayland_context.shm_pool = wl_shm_create_pool(
         g_wayland_context.wl_shm, g_wayland_context.frame_shm_fd, g_wayland_context.frame_size
     );
-    // creating ARGB buffer
+
+    // use that binding to create wl_buffer
     g_wayland_context.wl_buffer = wl_shm_pool_create_buffer(g_wayland_context.shm_pool, 0, width,
         height, g_wayland_context.frame_stride, WL_SHM_FORMAT_ARGB8888);
 
@@ -122,7 +153,6 @@ void wayland_setup_screen_cap(const int width, const int height) {
         g_logger.error("Failed to create Wayland surface");
         exit(-1);
     }
-
     g_logger.info("WayLand screen grabber initialized successfully!");
 }
 
@@ -135,12 +165,36 @@ void wayland_capture_screen() {
     // waiting for the frame to be rendered
     wl_display_roundtrip(g_wayland_context.wl_display);
 
+    //========================================================================================================
+    // for testing
+    // printf("saving to file");
+    // FILE *file = fopen("test.inter.png", "wb");
+    // if (!file) {
+    //     perror("Failed to open file for writing");
+    //     return;
+    // }
+
+    // size_t written = fwrite(g_wayland_context.wayland_data, 1, g_wayland_context.frame_size, file);
+    // if (written != g_wayland_context.frame_size) {
+    //     perror("Failed to write all data to file");
+    // }
+
+    // fclose(file);
+    // printf("Dumped raw memory to %s\n", "test.inter.png");
+
+    for (int i = 0; i < 5; i++) { // Log first 10 pixels
+        uint32_t pixel = ((uint32_t *)g_wayland_context.wayland_data)[i];
+        printf("Pixel %d: 0x%08x\n", i, pixel);
+    }
+    //========================================================================================================
+
+
     // Copy the memory from the shared memory to the AVFrame
     for (int y = 0; y < g_wayland_context.frame_height; y++) {
         memcpy(g_avframe->data[0] + y * g_avframe->linesize[0],
                 (uint8_t *)g_wayland_context.wayland_data + y * g_wayland_context.frame_stride,
                 g_wayland_context.frame_stride
-        ); // width * 4); // Assuming 4 bytes per pixel (e.g., ARGB8888)
+        );
     }
 }
 
@@ -203,7 +257,7 @@ void wayland_cleanup_screen_cap() {
 // }
 
 // void encode_av1_frame(uint8_t *data) {
-//     // Convert the Wayland raw image data (ARGB) to YUV420P
+//     // Convert the Wayland raw image data (BGRA) to YUV420P
 //     // Populate the `frame` with converted data
 
 //     int ret = avcodec_send_frame(codec_context, frame);

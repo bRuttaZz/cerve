@@ -3,3 +3,8 @@ CompileFlags:
     - "-I/usr/include"
     - "-I/usr/include/ffmpeg"
     - -D_GNU_SOURCE
+    - -I/usr/include/glib-2.0
+    - -I/usr/lib64/glib-2.0/include
+    - -I/usr/include/sysprof-6
+    - -pthread
+    - -lglib-2.0

@@ -3,6 +3,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 #include <stdlib.h>
 
 
@@ -56,7 +57,7 @@ void init_video_encoder(const int width, const int height) {
     g_codec_context->framerate = (AVRational){g_video_params.framerate, 1};
     g_codec_context->gop_size = g_video_params.gop_size;
     g_codec_context->max_b_frames = g_video_params.max_b_frames;
-    g_codec_context->pix_fmt = g_video_params.pix_fmt; // argb888
+    g_codec_context->pix_fmt = g_video_params.pix_fmt;
 
 
     g_logger.debug("initializing global av frames and packets..");
@@ -64,7 +65,15 @@ void init_video_encoder(const int width, const int height) {
     g_avframe->format = g_codec_context->pix_fmt;
     g_avframe->width = g_codec_context->width;
     g_avframe->height = g_codec_context->height;
-    av_frame_get_buffer(g_avframe, 0);
+    g_avframe->linesize[0] = width * DEF_VIDEO_STRIDE_CHANNELS;
+
+    // Allocate memory for the frame
+    int ret = av_image_alloc(g_avframe->data, g_avframe->linesize, width, height, g_avframe->format, 32);
+    if (ret < 0) {
+        g_logger.error("Failed to allocate AV image buffer");
+        av_frame_free(&g_avframe);
+        exit(-1);
+    }
 
     g_avpacket = av_packet_alloc();
 }

@@ -7,6 +7,7 @@ void test_screen_grabber(enum ScreenGrabberType grabber) {
     int width = 1920;
     int height = 1080;
     char msg[200];
+    const char out_frame_filename[] = "test.screen-shot.png";
 
 
     sprintf(msg, "testing SCREEN GRABBER 🮕 : %d", grabber);
@@ -24,6 +25,15 @@ void test_screen_grabber(enum ScreenGrabberType grabber) {
     g_logger.info("capturing screen..");
     for (int i=0; i<3; i++){
         g_screen_grabber.capture_screen();
+    }
+
+    sprintf(msg, "saving last captured frame : %s", out_frame_filename);
+    g_logger.info(msg);
+    int resp = test_save_av_frame(g_avframe, out_frame_filename);
+    if (resp) {
+        sprintf(msg, "error saving captured frame : %s", out_frame_filename);
+        g_logger.error(msg);
+
     }
 
     g_logger.info("garbage collecting screen capture..");

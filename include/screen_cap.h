@@ -15,8 +15,8 @@
 // max_b_frames specifies the maximum number of consecutive B-frames (bidirectionally predicted frames) that can be used in a video sequence.
 // more b frames -> more compression and predictiveness -> more cpu
 #define DEF_VIDEO_MAX_B_FRAMES 1
-#define DEF_VIDEO_PIX_FMT AV_PIX_FMT_ARGB   // (argb888) for the time being setting a standard
-
+#define DEF_VIDEO_PIX_FMT AV_PIX_FMT_ARGB   // (ARGB888) for the time being setting a standard
+#define DEF_VIDEO_STRIDE_CHANNELS 4                  // for provided DEF_VIDEO_PIX_FMT
 
 struct {
     int width;

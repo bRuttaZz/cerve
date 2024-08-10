@@ -23,7 +23,7 @@ void _logger(const char* msg, const char* prefix, enum LogLevel level) {
         strcat(resp, "\n");
 
     if (level)
-        printf("%s", resp);
+        fprintf(stdout, "%s", resp);
     else // log error in std out
         perror(resp);
 }

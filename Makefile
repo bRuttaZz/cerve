@@ -5,8 +5,11 @@ CC = gcc
 CFLAGS = -I./include
 
 # for wayland
-WAYLAND_INCS = wayland-client
+WAYLAND_INCS = wayland-client wayland-server
 CFLAGS += $(shell pkg-config --cflags $(WAYLAND_INCS) --libs $(WAYLAND_INCS) )
+
+GLIB_INCS = glib-2.0 gio-2.0
+CFLAGS += $(shell pkg-config --cflags $(GLIB_INCS) --libs $(GLIB_INCS))
 
 # for ffmpeg
 FFMPEG_INCS = libavformat libavcodec libavutil
@@ -23,6 +26,8 @@ else
 	CFLAGS += -02
 endif
 
+# test dependecies
+TEST_CFLAGS += $(shell pkg-config --cflags libswscale --libs libswscale )
 
 # executable name
 EXEC = cerve
@@ -37,7 +42,7 @@ help:	## Show all Makefile targets.
 
 test: 	## run test cases
 	@echo -e "Compiling test cases.."
-	$(CC) $(CFLAGS) -o test_$(EXEC) $(TESTS) $(SRCS) -g
+	$(CC) $(CFLAGS) -o test_$(EXEC) $(TESTS) $(SRCS) $(TEST_CFLAGS)
 	@echo -e "\nExecuting the test cases..!\n"
 	@./test_$(EXEC)
 

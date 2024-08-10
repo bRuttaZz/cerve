@@ -63,7 +63,7 @@ void* _listen_thread(void * _) {
 
 void test_server_constructor() {
     // g_logger.level = 3;
-    g_logger.info("[TEST] testing server construct..\n");
+    g_logger.info("[TEST] testing SERVER CONSTRUCT 🮕\n");
     pthread_t thread_id;
     char msgs[200];
 

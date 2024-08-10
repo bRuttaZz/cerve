@@ -13,4 +13,5 @@ void wayland_cleanup_screen_cap();
 
 // in future (and if everything works) other grabber instances can be filled over here
 
+
 #endif /* SCREEN_GRABBERS_H */

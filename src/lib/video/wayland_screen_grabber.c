@@ -2,8 +2,9 @@
 
 #include "../../../include/utils.h"
 #include "../../../include/screen_cap.h"
-#include <wayland-client-protocol.h>
 #include "../../../include/screen_grabbers.h"
+#include "libavutil/frame.h"
+#include <wayland-client-protocol.h>
 #include <wayland-client.h>
 #include <sys/mman.h>
 #include <sys/types.h>
@@ -12,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+
 
 struct {
     // global wayland objects
@@ -29,7 +31,7 @@ struct {
     int frame_size;
     int frame_shm_fd;
     struct wl_shm_pool *shm_pool;
-    uint32_t *wayland_data;
+    uint32_t *wayland_data;         // wl memory mapped place to store data
 
 } typedef WayLandFrameCaptureContext ;
 
@@ -76,6 +78,7 @@ void _initialize_wayland() {
     wl_display_roundtrip(g_wayland_context.wl_display);
 }
 
+
 // setup wayland screen capture
 void wayland_setup_screen_cap(const int width, const int height) {
     g_logger.info("Initializing Wayland screen grabber..");
@@ -112,13 +115,13 @@ void wayland_setup_screen_cap(const int width, const int height) {
     // creating ARGB buffer
     g_wayland_context.wl_buffer = wl_shm_pool_create_buffer(g_wayland_context.shm_pool, 0, width,
         height, g_wayland_context.frame_stride, WL_SHM_FORMAT_ARGB8888);
+
     // creating sruface
     g_wayland_context.wl_surface = wl_compositor_create_surface(g_wayland_context.wl_compositor);
     if (g_wayland_context.wl_surface <=0) {
         g_logger.error("Failed to create Wayland surface");
         exit(-1);
     }
-
 
     g_logger.info("WayLand screen grabber initialized successfully!");
 }
@@ -132,6 +135,13 @@ void wayland_capture_screen() {
     // waiting for the frame to be rendered
     wl_display_roundtrip(g_wayland_context.wl_display);
 
+    // Copy the memory from the shared memory to the AVFrame
+    for (int y = 0; y < g_wayland_context.frame_height; y++) {
+        memcpy(g_avframe->data[0] + y * g_avframe->linesize[0],
+                (uint8_t *)g_wayland_context.wayland_data + y * g_wayland_context.frame_stride,
+                g_wayland_context.frame_stride
+        ); // width * 4); // Assuming 4 bytes per pixel (e.g., ARGB8888)
+    }
 }
 
 // cleanup wayland capture session

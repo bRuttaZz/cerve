@@ -1,36 +1,10 @@
 #include "../../../include/screen_cap.h"
 #include "../../../include/utils.h"
-#include "libavutil/pixfmt.h"
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
 #include <stdlib.h>
 
-// void initialize_av1_encoder(int width, int height) {
-//     avcodec_register_all();
-
-//     AVCodec *codec = avcodec_find_encoder(AV_CODEC_ID_AV1);
-//     codec_context = avcodec_alloc_context3(codec);
-
-//     codec_context->bit_rate = 400000;
-//     codec_context->width = width;
-//     codec_context->height = height;
-//     codec_context->time_base = (AVRational){1, 30};
-//     codec_context->framerate = (AVRational){30, 1};
-//     codec_context->gop_size = 10;
-//     codec_context->max_b_frames = 1;
-//     codec_context->pix_fmt = AV_PIX_FMT_YUV420P;
-
-//     avcodec_open2(codec_context, codec, NULL);
-
-//     frame = av_frame_alloc();
-//     frame->format = codec_context->pix_fmt;
-//     frame->width = codec_context->width;
-//     frame->height = codec_context->height;
-//     av_frame_get_buffer(frame, 0);
-
-//     packet = av_packet_alloc();
-// }
 
 AVCodecContext *g_codec_context; // ffmpg codec context
 

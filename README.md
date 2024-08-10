@@ -30,3 +30,18 @@ To build
 
 1. ffmpeg-dev / ffmpeg-free-devel (in fedora repo)
 2. wayland-dev / wayland-devel
+
+
+# Flow
+
+```mermaid
+
+flowchart TD
+
+  stp1[init video_encoder & screen_grabber of choice] --> stp2[screen grabber grabs screen shot from provider like wayland, x11, etc]
+
+  stp2 --> stp3[screen grabber convert the screen shot to ffmpeg AVFrame]
+
+  stp3 --> stp4[AVFrames are collected to create AVPackets]
+
+```

@@ -1,10 +1,20 @@
 CompileFlags:
   Add:
     - "-I/usr/include"
-    - "-I/usr/include/ffmpeg"
-    - -D_GNU_SOURCE
+
+    # dbus
+    - -I/usr/include/dbus-1.0
+    - -I/usr/lib64/dbus-1.0/include
+    - -ldbus-1
+
+    # gio
     - -I/usr/include/glib-2.0
     - -I/usr/lib64/glib-2.0/include
+    - -DWITH_GZFILEOP
+    - -I/usr/include/libmount
+    - -I/usr/include/blkid
     - -I/usr/include/sysprof-6
     - -pthread
+    - -lgio-2.0
+    - -lgobject-2.0
     - -lglib-2.0

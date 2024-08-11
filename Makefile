@@ -4,20 +4,10 @@ CC = gcc
 
 CFLAGS = -I./include
 
-# for wayland
-WAYLAND_INCS = wayland-client wayland-server
-CFLAGS += $(shell pkg-config --cflags $(WAYLAND_INCS) --libs $(WAYLAND_INCS) )
-
-GLIB_INCS = glib-2.0 gio-2.0
-CFLAGS += $(shell pkg-config --cflags $(GLIB_INCS) --libs $(GLIB_INCS))
-
-# for ffmpeg
-FFMPEG_INCS = libavformat libavcodec libavutil
-CFLAGS += $(shell pkg-config --cflags $(FFMPEG_INCS) --libs $(FFMPEG_INCS) )
-
-# gnu linux specials
-CFLAGS += -D_GNU_SOURCE
-
+# dbus
+CFLAGS += $(shell pkg-config --cflags --libs dbus-1 )
+# gio
+CFLAGS += $(shell pkg-config --cflags --libs gio-2.0 )
 
 ifeq ($(DEBUG), true)
 	CFLAGS += -Wall
@@ -26,10 +16,7 @@ else
 	CFLAGS += -02
 endif
 
-# test dependecies
-TEST_CFLAGS += $(shell pkg-config --cflags libswscale --libs libswscale )
-
-# executable name
+# executable
 EXEC = cerve
 
 ENTRY_POINT = src/main.c

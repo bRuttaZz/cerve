@@ -1,5 +1,6 @@
 #include "../include/server.h"
 #include "../include/utils.h"
+#include "./tests.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -55,7 +56,7 @@ void _launch(struct Server * server) {
 
 void* _listen_thread(void * _) {
     struct Server test_server = server_constructor(
-        AF_INET, SOCK_STREAM, 0, 0, 1, INADDR_ANY, 1, _launch
+        AF_INET, SOCK_STREAM, 0, 0, 1, INADDR_ANY, _launch
     );
     test_server.launch(&test_server);
     return  NULL;
@@ -63,7 +64,6 @@ void* _listen_thread(void * _) {
 
 void test_server_constructor() {
     // g_logger.level = 3;
-    g_logger.info("[TEST] testing SERVER CONSTRUCT 🮕\n");
     pthread_t thread_id;
     char msgs[200];
 
@@ -95,5 +95,4 @@ void test_server_constructor() {
         g_logger.error("[TEST] error closing server thread!\n");
         exit(-1);
     }
-    g_logger.info("[TEST] SERVER CONSTRUCT ✅\n\n");
 }

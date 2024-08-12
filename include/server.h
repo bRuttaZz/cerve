@@ -27,7 +27,7 @@ extern struct Server * g_running_server;
 // functions
 struct Server server_constructor(
     int address_family, int socket_type, int protocol, int port, int backlog,
-    unsigned long interface, int global_server, void (*launch)(struct Server *)
+    unsigned long interface, void (*launch)(struct Server *)
 );
 void server_destructor(struct Server * server);
 int is_server_alive(struct Server * server);

@@ -46,3 +46,7 @@ flowchart TD
 # Note Dump
 
 gdbus call --session            --dest org.freedesktop.portal.Desktop            --object-path /org/freedesktop/portal/desktop            --method org.freedesktop.portal.Screenshot.Screenshot            "{}" "{'filename': <'/home/bruttazz/screenshot.png'>, 'interactive': <false>}"
+
+
+
+- got working python code snippet : https://gitlab.gnome.org/-/snippets/19

@@ -20,7 +20,7 @@ endif
 EXEC = cerve
 
 ENTRY_POINT = src/main.c
-SRCS = $(foreach dir, src/lib src/lib/utils src/lib/server src/lib/video, $(wildcard $(dir)/*.c))
+SRCS = $(foreach dir, src/lib src/lib/utils src/lib/server src/lib/screencast, $(wildcard $(dir)/*.c))
 TESTS += $(foreach dir, tests, $(wildcard $(dir)/*.c))
 
 

@@ -9,12 +9,6 @@
 #include <unistd.h>
 #include <errno.h>
 
-// global definition
-struct Server * g_running_server = NULL;
-
-// internal functions
-void _handle_sigint(int sig);
-void _handle_sigterm(int sig);
 
 
 /**
@@ -27,8 +21,6 @@ based on you domain and service preference)
 @param port - local port to listen for (set zero to get an ephemeral port)
 @param backlog - socket backlog
 @param interface - network interface to bind the socket
-@params global_server - if set to non-zero the created server will be referenced globally and
-have proper garbage collection on SITERM and SIGINT. if zero the server will not be globally registered
 @param launch - a function handle the server instance after binding the server to
 local network port
 @returns the created server instance.
@@ -36,13 +28,8 @@ local network port
 struct Server server_constructor(
     int address_family, int socket_type, int protocol,
     int port, int backlog, unsigned long interface,
-    int global_server, void (*launch)(struct Server *)
+    void (*launch)(struct Server *)
 ) {
-    if (global_server && is_server_alive(g_running_server)) {
-        g_logger.error("Attempt to create new server, while one is already running..");
-        exit(-1);
-    }
-
     struct Server server;
 
     server.address_family = address_family;
@@ -94,18 +81,6 @@ struct Server server_constructor(
     server.launch = launch;
     server.close = server_destructor;
 
-    // adding SIGINT and SIGTERM handlers
-    if (global_server) {
-        if (signal(SIGTERM, _handle_sigterm) == SIG_ERR) {
-            g_logger.error("Unable to catch SIGTERM");
-            exit(-1);
-        }
-
-        if (signal(SIGINT, _handle_sigint) == SIG_ERR) {
-            g_logger.error("Unable to catch SIGINT");
-            exit(-1);
-        }
-    }
     return server;
 }
 
@@ -141,16 +116,4 @@ int is_server_alive(struct Server * server) {
         return  0;
     }
     return 1;
-}
-
-void _handle_sigterm(int sig) {
-    g_logger.error("Recieving SIGTERM signal. Exiting gracefully...");
-    server_destructor(g_running_server);
-    exit(0);
-}
-
-void _handle_sigint(int sig) {
-    g_logger.error("Receiving SIGINT signal (Ctrl+C). Exiting gracefully...");
-    server_destructor(g_running_server);
-    exit(0);
 }

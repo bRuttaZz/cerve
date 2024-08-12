@@ -30,7 +30,6 @@ request_token_counter = 0
 session_token_counter = 0
 sender_name = re.sub(r'\.', r'_', bus.get_unique_name()[1:])
 
-
 # bus.add_signal_receiver
 
 
@@ -83,7 +82,6 @@ def on_start_response(response, results):
     for (node_id, stream_properties) in results['streams']:
         print("stream {}".format(node_id))
         play_pipewire_stream(node_id)
-    terminate()
 
 def on_select_sources_response(response, results):
     if response != 0:
@@ -104,8 +102,6 @@ def on_create_session_response(response, results):
 
     global session
     session = results['session_handle']
-    print("got session ", session)
-
     print("session %s created"%session)
 
     screen_cast_call(portal.SelectSources, on_select_sources_response,

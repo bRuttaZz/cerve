@@ -3,6 +3,7 @@
 
 #include "glib.h"
 #include <gio/gio.h>
+// #include <stdio.h>
 
 // implements screencast using freedesktop's desktop portals
 
@@ -21,11 +22,16 @@
 // dbus connection handles
 struct {
     GDBusConnection *conn;
+    GMainLoop *loop;
     char *sender_name;
     char *session_handle;
+    unsigned int event_subs_id;
+    guint32 pipewire_fd;
 
     int req_token_counter;
     int ses_token_counter;          // lemme make it clear (ses -> session)
+
+    char *event_lookup_path;
 } typedef _DbusConnectionHandle;
 
 
@@ -33,7 +39,6 @@ struct {
 int sc_make_dbus_connection(_DbusConnectionHandle *);
 void sc_close_dbus_connection(_DbusConnectionHandle *);
 
-int sc_make_dbus_session(_DbusConnectionHandle *);
 // screen cast request
 int sc_request_screen_cast(_DbusConnectionHandle *);
 

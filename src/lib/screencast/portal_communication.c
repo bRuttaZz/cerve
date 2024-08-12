@@ -4,11 +4,54 @@
 #include <string.h>
 #include <glib.h>
 #include <gio/gio.h>
+#include <pipewire/pipewire.h>
+// #include <pipewire/pipewire-glib.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
 
-void _get_first_stream(GVariant *response);
+
+void _setup_pipewire(_DbusConnectionHandle *conn);
+
+void _process_resp(GVariant *parameters) {
+    gint response_i;
+    GVariant *array;
+    GVariant *dict;
+    GVariantIter array_iter;
+    GVariantIter dict_iter;
+    const gchar *key;
+    GVariant *value;
+
+
+
+
+    g_variant_get(parameters, "(ua{sv})", &response_i, &array);
+    g_print("Integer value: %u\n", response_i);
+
+    g_variant_iter_init(&array_iter, array);
+
+    dict = g_variant_iter_next_value(&array_iter);
+    while (dict != NULL) {
+        g_print("Dictionary:\n");
+
+        // Initialize the iterator for the dictionary
+        g_variant_iter_init(&dict_iter, dict);
+
+        // Iterate over each key-value pair in the dictionary
+        while (g_variant_iter_next(&dict_iter, "{&sv}", &key, &value)) {
+            // Print the key and value
+            g_print("  Key: %s, Value: ", key);
+            g_variant_print(value, TRUE);
+            g_variant_unref(value);
+        }
+
+        // Unref the dictionary
+        g_variant_unref(dict);
+    }
+    g_variant_unref(array);
+
+}
+
 
 // helpers
 void _on_signal_callback (GDBusConnection *connection, const char *sender_name, const char *object_path,
@@ -20,8 +63,8 @@ void _on_signal_callback (GDBusConnection *connection, const char *sender_name, 
     g_logger.debug(msg);
     if (conn_man->event_lookup_path) {
         if(!strcmp(object_path, conn_man->event_lookup_path)){
-            // _get_first_stream(parameters);
             conn_man->event_lookup_path = NULL;
+            _process_resp(parameters);
             g_main_loop_quit(conn_man->loop);
         };
     }
@@ -74,7 +117,6 @@ void sc_close_dbus_connection(_DbusConnectionHandle *conn_handle) {
     g_object_unref(conn_handle->conn);
     g_main_loop_unref(conn_handle->loop);
 }
-
 
 int _sc_create_session(_DbusConnectionHandle *conn) {
     GError *error = NULL;
@@ -217,17 +259,10 @@ int sc_request_screen_cast(_DbusConnectionHandle * conn) {
     resp_status = _sc_start(conn);
     if (resp_status) return 3;
 
-
-
-    // reply = (GVariant *) conn->dbus_response_msg;
-    // _get_first_stream(reply);
-    // g_variant_get_child()
-    // while(g_variant_iter_next(GVariantIter *iter, const gchar *format_string, ...))
-    // conn->dbus_response_msg=NULL;
-
     resp_status = _sc_bind_pipewire(conn);
+    if (resp_status) return 4;
 
-
+    // _setup_pipewire(conn);
     sleep(5);
 
     return 0;

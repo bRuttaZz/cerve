@@ -4,10 +4,12 @@ CC = gcc
 
 CFLAGS = -I./include
 
-# dbus
-CFLAGS += $(shell pkg-config --cflags --libs dbus-1 )
+# # dbus
+# CFLAGS += $(shell pkg-config --cflags --libs dbus-1 )
 # gio
 CFLAGS += $(shell pkg-config --cflags --libs gio-2.0 )
+# pipewire
+CFLAGS += $(shell pkg-config --cflags --libs libpipewire-0.3)
 
 ifeq ($(DEBUG), true)
 	CFLAGS += -Wall

@@ -64,11 +64,13 @@ def on_gst_message(bus, message):
         terminate()
 
 def play_pipewire_stream(node_id):
+    print("nod id", node_id)
     empty_dict = dbus.Dictionary(signature="sv")
     fd_object = portal.OpenPipeWireRemote(session, empty_dict,
                                           dbus_interface=screen_cast_iface)
     fd = fd_object.take()
-    pipeline = Gst.parse_launch('pipewiresrc fd=%d path=%u ! videoconvert ! xvimagesink'%(fd, node_id))
+    print("fd created", fd)
+    pipeline = Gst.parse_launch('pipewiresrc fd=%d path=%u ! videoconvert ! openh264enc  ! mpegtsmux ! tcpserversink port=9000 host=0.0.0.0'%(fd, node_id))
     pipeline.set_state(Gst.State.PLAYING)
     pipeline.get_bus().connect('message', on_gst_message)
 

@@ -38,14 +38,5 @@ extern struct Logger g_logger;
 void raise_http_request(char *hostname, char *port, char *path, char *req_text, char *method, char *resp_buffer, int max_recv_len);
 
 
-// helpers
-
-/**
-@brief replace character in string
-@param str string
-@param src_char source character to be replaced
-@param new_char new character
-*/
-void replace_char(char *, char, char);
 
 #endif /* UTILS_H */

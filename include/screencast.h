@@ -1,7 +1,8 @@
 #ifndef SCREENCAST_H
 #define SCREENCAST_H
 
-#include <dbus/dbus.h>
+#include "glib.h"
+#include <gio/gio.h>
 
 // implements screencast using freedesktop's desktop portals
 
@@ -17,11 +18,9 @@
 #define SC_BUS_PATH_FMT_STRING_R "/org/freedesktop/portal/desktop/request/%s/%s"
 #define SC_BUS_PATH_FMT_STRING_S "/org/freedesktop/portal/desktop/session/%s/%s"
 
-
 // dbus connection handles
 struct {
-    DBusConnection *conn;
-    DBusError error;
+    GDBusConnection *conn;
     char *sender_name;
     char *session_handle;
 

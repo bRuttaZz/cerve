@@ -1,5 +1,6 @@
+#include "../include/server.h"
 
 
 int main() {
-	return 0;
+	return start_listener();
 }

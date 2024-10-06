@@ -1,5 +1,4 @@
 #include "../include/server.h"
-#include "../include/server-configs.h"
 #include "../include/utils.h"
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,30 +13,60 @@
 pthread_mutex_t client_read_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t client_read_cond = PTHREAD_COND_INITIALIZER;
 
+int g_port = 0;
+
+int _launch(struct Server * server) {
+    int address_len = sizeof(server->address);
+    int new_sock;
+    char buffer[1024];
+    char msgs[500];
+    char response_msg[] = "ok";
+    int bytes_read;
+
+    // listen for request
+    sprintf(msgs, "[launch thread] waiting for new socket connection at port %d ..\n", server->port);
+    g_logger.info(msgs);
+
+    pthread_mutex_lock(&client_read_mutex);
+    g_port = server->port;
+    pthread_cond_signal(&client_read_cond);
+    pthread_mutex_unlock(&client_read_mutex);                   // unlock after server is ready to listen
+
+    new_sock = accept(server->socket, (struct sockaddr *)&server->address, (socklen_t *)&address_len);
+    g_logger.debug("[launch thread] got new connection..\n");
+
+    bytes_read = read(new_sock, buffer, 1024);
+    if (bytes_read < 0) {
+        perror("[launch thread] Error reading data from socket\n");
+        exit(-1);
+    }
+    sprintf(msgs, "[launch thread] got message : (%d)\n", bytes_read);
+    g_logger.debug(msgs);
+    write(new_sock, response_msg, strlen(response_msg));
+
+    // wait to the acquire the lock (only for test server (otherwise the port enter into `TIME_WAIT` state))
+    pthread_mutex_lock(&client_read_mutex);
+
+    close(new_sock);
+    server_destructor(server);
+    g_logger.debug("[launch thread] reponse wrote and connection closed!\n");
+    return  0;
+}
 
 void* _listen_thread(void * _) {
-    int status = start_listener();
-    if (status != -3) {
-        char msg[100];
-        sprintf(msg, "[TEST] error in listner [%d] . Current state : %d !", status, get_server_state());
-        g_logger.error(msg);
-        exit(-3);
-    };
-    g_logger.info("[TEST] server closed successfully on close signal!");
+
+    struct Server test_server;
+    server_constructor(
+        &test_server, AF_INET, SOCK_STREAM, 0, 0, 1, INADDR_ANY, _launch
+    );
+    test_server.launch(&test_server);
     return  NULL;
 }
 
 void test_server_constructor() {
-    g_logger.info("[TEST] testing server construct..\n");
     char msgs[200];
-    char resp[3];
-    char port[5];
+    g_logger.info("[TEST] testing SERVER CONSTRUCT..\n");
     pthread_t thread_id;
-    enum ListenerEvent server_event;
-
-    g_server_port = 0;
-    g_logger.level = 99;
-    g_logger.info("[TEST] initial configs set");
 
     int thread_resp = pthread_create(&thread_id, NULL, _listen_thread, NULL);
     if (thread_resp != 0) {
@@ -47,25 +76,20 @@ void test_server_constructor() {
         exit(-1);
     }
 
-    g_logger.debug("[TEST] waiting for server startup complete");
-    server_event = get_server_state();
-    while (server_event<2) {
-        server_event = wait_server_state_change();
+    pthread_mutex_lock(&client_read_mutex);                     // lock the mutex
+    while (g_port == 0) {
+        pthread_cond_wait(&client_read_cond, &client_read_mutex);
     }
-    g_logger.debug("[TEST] server startup complete");
-
-    sprintf(port, "%d", g_server_port);
+    char resp[3];
+    char port[5];
+    sprintf(port, "%d", g_port);
     g_logger.info("[TEST] sending test message to server..\n");
     raise_http_request("localhost", port, "/", "", "GET", resp, 3); // raise request
     sprintf(msgs, "[TEST] message received from thread : %s\n", resp);
     g_logger.info(msgs);
+    pthread_mutex_unlock(&client_read_mutex);                   // unlock the mutex
+    // (usage of mutex: only for removing the testserver issue related to port `TIME_WAIT` state)
 
-    g_logger.info("[TEST] closing server thread..");
-    close_listener();
-    server_event = get_server_state();
-    while (server_event != SERVER_EVENT_CLOSED) {
-        server_event = wait_server_state_change();
-    }
 
     thread_resp = pthread_join(thread_id, NULL);
     if (thread_resp !=0) {

@@ -172,8 +172,8 @@ int listener(struct Server * server) {
 @brief close running listeners and worker threads
 */
 void close_listener() {
-    _set_server_state(SERVER_EVENT_CLOSED);
     server_destructor(_g_server);
+    _set_server_state(SERVER_EVENT_CLOSED);
 }
 
 // Signal handlers

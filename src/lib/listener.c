@@ -74,17 +74,17 @@ void* worker(void* _) {
     char response_msg[] = "ok";
 
     while (1) {
-        // look for process termination
-        if (get_server_state() == SERVER_EVENT_CLOSED) {
-            // process termination sign
-            g_logger.error("[worker] Termination signal! worker terminated!");
-            return NULL;
-        }
-
         // look for new job
         pthread_mutex_lock(&g_job_mutex);
         while (_g_job_sock == 0) {
             pthread_cond_wait(&g_job_cond_new, &g_job_mutex);
+        }
+        // look for process termination
+        if (get_server_state() == SERVER_EVENT_CLOSED) {
+            // process termination sign
+            pthread_mutex_unlock(&g_job_mutex);
+            g_logger.debug("[worker] Termination signal! worker terminated!");
+            break;
         }
         job = _g_job_sock;
         _g_job_sock = 0;
@@ -93,8 +93,8 @@ void* worker(void* _) {
         // do the work with the sock
         bytes_read = read(job, buffer, 1024);
         if (bytes_read < 0) {
-            g_logger.error("[worker] Error reading data from socket. Worker terminated!");
-            return NULL;
+            g_logger.error("[worker] Error reading data from socket. Connection skipped!");
+            continue;;
         }
         sprintf(sys_msgs, "[worker] got message : (%d)", bytes_read);
         g_logger.debug(sys_msgs);
@@ -103,8 +103,42 @@ void* worker(void* _) {
         close(job);
         g_logger.debug("[worker] reponse wrote and connection closed!");
 
+        pthread_mutex_lock(&g_job_mutex);
         pthread_cond_signal(&g_worker_cond_available);
+        pthread_mutex_unlock(&g_job_mutex);
     }
+    return NULL;
+}
+
+/**
+@brief To close all the listener workers
+@param thread_ids - array of thread ids to be closed
+@param thread_count - number of thread ids
+@returns - number of error cases . 0 for success
+*/
+int _close_all_workers(pthread_t *thread_ids, int thread_count) {
+    char msg[100];
+    int errors = 0;
+
+    g_logger.debug("[listener] killing all workers!");
+    _set_server_state(SERVER_EVENT_CLOSED);
+    pthread_mutex_lock(&g_job_mutex);
+    _g_job_sock = -5;
+    pthread_cond_broadcast(&g_job_cond_new);
+    pthread_mutex_unlock(&g_job_mutex);
+
+    for (int i=0; i<thread_count; i++) {
+        sprintf(msg, "[listener] closing worker [%d]", i);
+        g_logger.info(msg);
+        // pthread_cancel(thread_ids[i]);
+        if (pthread_join(thread_ids[i], NULL) !=0) {
+            sprintf(msg, "[listener] error closing worker thread [%d]", i);
+            g_logger.error(msg);
+            errors++;
+        }
+    }
+    errno = 125;
+    return errors;
 }
 
 /**
@@ -117,9 +151,11 @@ int listener(struct Server * server) {
     int address_len = sizeof(server->address);
 
     pthread_t thread_ids[g_worker_count];
+    int threads[g_worker_count];
 
     for (int i=0; i<g_worker_count; i++) {
-        int thread_resp = pthread_create(&thread_ids[i], NULL, worker, NULL);
+        threads[i] = i;
+        int thread_resp = pthread_create(&thread_ids[i], NULL, worker, &threads[i]);
         if (thread_resp != 0) {
             char error_msg[50] ;
             sprintf(error_msg, "[listener] error spin server thread! [%d]", thread_resp);
@@ -133,6 +169,8 @@ int listener(struct Server * server) {
 
     if (inet_ntop(AF_INET, &(server->address.sin_addr), g_server_name, sizeof(g_server_name)) == NULL) {
             g_logger.error("[listener] error getting ip expansion: inet_ntop\n");
+            _close_all_workers(thread_ids, g_worker_count);
+            g_logger.error("[listener] stoped!");
             return -2;
     }
     // listen for request
@@ -141,30 +179,38 @@ int listener(struct Server * server) {
     _set_server_state(SERVER_EVENT_STARTUP_COMPLETED);
 
     while (1) {
-        // look for server closure
-        if (get_server_state() == SERVER_EVENT_CLOSED) {
-            // process termination sign
-            g_logger.error("[listener] terminated!");
-            return -3;
-        }
-
         pthread_mutex_lock(&g_job_mutex);
         while (_g_job_sock > 0) {
             pthread_cond_wait(&g_worker_cond_available, &g_job_mutex);
         }
         pthread_mutex_unlock(&g_job_mutex);
+        // look for server closure
+        if (get_server_state() == SERVER_EVENT_CLOSED) {
+            // process termination sign
+            _close_all_workers(thread_ids, g_worker_count);
+            g_logger.error("[listener] terminated!");
+            return -3;
+        }
 
         // listen for new socket connection
         g_logger.debug("looking for new connection..\n");
         _conn_sock = accept(server->socket, (struct sockaddr *)&server->address, (socklen_t *)&address_len);
         g_logger.debug("got new connection..\n");
 
+        if (_conn_sock<=0) {
+            sprintf(sys_msgs, "[listener] server socket connection interrupted. access error : %d", _conn_sock);
+            g_logger.error(sys_msgs);
+            _close_all_workers(thread_ids, g_worker_count);
+            g_logger.error("[listener] terminated!");
+            return -3;
+        }
+
         pthread_mutex_lock(&g_job_mutex);
         _g_job_sock = _conn_sock;
+        // signal new job availability
+        pthread_cond_signal(&g_job_cond_new);
         pthread_mutex_unlock(&g_job_mutex);
 
-        // unlock and signal new job availability
-        pthread_cond_signal(&g_job_cond_new);
     }
 }
 
@@ -174,21 +220,19 @@ int listener(struct Server * server) {
 void close_listener() {
     server_destructor(_g_server);
     _set_server_state(SERVER_EVENT_CLOSED);
+    pthread_cond_signal(&g_worker_cond_available);
 }
 
 // Signal handlers
 void _handle_sigterm(int sig) {
-    g_logger.info("Recieving SIGTERM signal. Exiting gracefully...\n");
-    server_destructor(_g_server);
+    g_logger.error("Recieving SIGTERM signal. Exiting gracefully...\n");
     close_listener();
     exit(4);
 }
 
 void _handle_sigint(int sig) {
-    g_logger.info("Receiving SIGINT signal (Ctrl+C). Exiting gracefully...\n");
-    server_destructor(_g_server);
+    g_logger.error("Receiving SIGINT signal (Ctrl+C). Exiting gracefully...\n");
     close_listener();
-    exit(4);
 }
 
 /**

@@ -88,6 +88,7 @@ int server_constructor(
 */
 void server_destructor(struct Server * server) {
     if (is_server_alive(server)) {
+        shutdown(server->socket, SHUT_RD);
         close(server->socket);
     }
 }

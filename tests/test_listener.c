@@ -30,7 +30,7 @@ void test_listener() {
     enum ListenerEvent server_event;
 
     g_server_port = 0;
-    g_worker_count = 1;
+    g_worker_count = 2;
     g_logger.level = 99;
     g_logger.info("[TEST] initial configs set");
 

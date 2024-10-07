@@ -40,4 +40,4 @@ build: 	## Build cerve
 
 
 clean:	## Clean the mess created by build
-	@rm -f $(EXEC) test_$(EXEC)
+	@rm -f $(EXEC) test_$(EXEC) debug_$(EXEC)

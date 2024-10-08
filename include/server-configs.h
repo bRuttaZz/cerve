@@ -3,9 +3,38 @@
 
 #include <arpa/inet.h>
 
+#ifndef VERSION
+#define VERSION "0.0.0" // meant to be overwrite
+#endif // VERSION
+
+#ifndef DBUG_MODE
+#define DBUG_MODE 0
+#endif // DBUG_MODE
+
+#define PROG_NAME "cerve"
+#define HELP_MSG  \
+"usage: cerve [OPTIONS] \n\n" \
+\
+"Options \n" \
+"   -h --help       print help and exit \n"\
+"   --version       print version and exit \n" \
+"   -v --verbose    an integer between 1 and 4, inclusive of those values representing \n" \
+"                   different log levels. higher values for detailed logs. 1 for minum logging \n" \
+"                   default to 4 \n" \
+"   -w --workers    number of workers to be used \n" \
+"                   defaults to 4 \n" \
+"   -p  --port      system port at which the server to listen for connections. \n"\
+"                   defaults to 8000 \n"\
 
 extern int g_server_port;
-extern char g_server_name[INET_ADDRSTRLEN];
 extern int g_worker_count;
+
+/**
+@brief configure values based on CLI arguments
+@param argc - number of arguments
+@param argv - string array of arguments
+@return return 0 if success otherwise the error code
+*/
+int set_config_from_args(int argc, char** argv);
 
 #endif /* SERVER_CONFIG_H */

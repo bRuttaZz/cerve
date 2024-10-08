@@ -16,16 +16,13 @@ pthread_mutex_t g_job_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t g_job_cond_new = PTHREAD_COND_INITIALIZER;
 pthread_cond_t g_worker_cond_available = PTHREAD_COND_INITIALIZER;
 
-char g_server_name[INET_ADDRSTRLEN];
-int g_server_port = 8000;
-int g_worker_count = 4;
-
 enum ListenerEvent _g_server_state = SERVER_EVENT_UNDEFINED;         // server state variable
 pthread_mutex_t _g_server_state_mut = PTHREAD_MUTEX_INITIALIZER;     // server state access mutex
 pthread_cond_t _g_server_state_sig = PTHREAD_COND_INITIALIZER;       // will be trigered on changin server state
 
 int _g_job_sock = 0;
 struct Server *_g_server = NULL;
+char _g_server_name[INET_ADDRSTRLEN];
 
 
 /**
@@ -167,20 +164,28 @@ int listener(struct Server * server) {
     }
 
 
-    if (inet_ntop(AF_INET, &(server->address.sin_addr), g_server_name, sizeof(g_server_name)) == NULL) {
+    if (inet_ntop(AF_INET, &(server->address.sin_addr), _g_server_name, sizeof(_g_server_name)) == NULL) {
             g_logger.error("[listener] error getting ip expansion: inet_ntop\n");
             _close_all_workers(thread_ids, g_worker_count);
             g_logger.error("[listener] stoped!");
             return -2;
     }
     // listen for request
-    sprintf(sys_msgs, "listening at http://%s:%d \n", g_server_name, server->port);
+    sprintf(sys_msgs, "listening at http://%s:%d \n", _g_server_name, server->port);
     g_logger.info(sys_msgs);
     _set_server_state(SERVER_EVENT_STARTUP_COMPLETED);
 
     while (1) {
         pthread_mutex_lock(&g_job_mutex);
         while (_g_job_sock > 0) {
+            // look for server closure (even if jobs are there yet to be resolved)
+            if (get_server_state() == SERVER_EVENT_CLOSED) {
+                pthread_mutex_unlock(&g_job_mutex);
+                // process termination signal
+                _close_all_workers(thread_ids, g_worker_count);
+                g_logger.error("[listener] terminated!");
+                return -3;
+            }
             pthread_cond_wait(&g_worker_cond_available, &g_job_mutex);
         }
         pthread_mutex_unlock(&g_job_mutex);

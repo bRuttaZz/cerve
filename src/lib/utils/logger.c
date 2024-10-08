@@ -1,4 +1,5 @@
 #include "../../../include/utils.h"
+#include "../../../include/server-configs.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -24,8 +25,10 @@ void _logger(const char* msg, const char* prefix, enum LogLevel level) {
 
     if (level)
         fprintf(stdout, "%s", resp);
-    else // log error in std out
+    else if (DBUG_MODE)
         perror(resp);
+    else // log error in std err
+        fprintf(stderr, "%s", resp);
 }
 
 // different loggers

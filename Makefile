@@ -2,7 +2,7 @@
 VERSION = $(shell cat VERSION)
 
 CC = gcc
-CFLAGS = -I./include
+CFLAGS = -DVERSION=\"$(VERSION)\" -I./include
 
 # executable name
 EXEC = cerve_v$(VERSION)
@@ -12,10 +12,10 @@ SRCS = $(foreach dir, src/lib src/lib/utils,$(wildcard $(dir)/*.c))
 TESTS += $(foreach dir, tests, $(wildcard $(dir)/*.c))
 
 # debug flags
-DBUG_FLAGS = -Wall -g
+DBUG_FLAGS = -Wall -g -DDBUG_MODE=1
 
 # production mode flags
-PROD_FLAGS = -02
+PROD_FLAGS = -O2 -s
 
 
 help:	## Show all Makefile targets.
@@ -35,7 +35,7 @@ dev: ## Build and run in debug mode
 	@./debug_$(EXEC)
 
 build: 	## Build cerve
-	$(CC) $(CFLAGS) $(PROD_FLAGS) -o $(EXEC) $(ENTRY_POINT) $(SRCS)
+	$(CC) $(PROD_FLAGS) $(CFLAGS) -o $(EXEC) $(ENTRY_POINT) $(SRCS)
 
 
 

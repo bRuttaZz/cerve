@@ -54,3 +54,4 @@ dkms.conf
 /cerve
 /test_cerve*
 /debug_cerve*
+/cerve_v*

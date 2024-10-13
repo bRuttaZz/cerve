@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 
+int g_enable_socket_reuse = 1;
 
 /**
 @brief create a server to start with
@@ -47,6 +48,13 @@ int server_constructor(
         sprintf(error_message, "Failed to create socket : %d \n", server->socket);
         g_logger.error(error_message);
         return 1;
+    }
+    if (g_enable_socket_reuse) {
+        // enable socket reuse (to prevent socket not available issues on immediate reuse)
+        g_logger.debug("enabling SO_REUSEADDR");
+        const int _enable = 1;
+        if (setsockopt(server->socket, SOL_SOCKET, SO_REUSEADDR, &_enable, sizeof(_enable)) < 0)
+            g_logger.error("setsockopt(SO_REUSEADDR) failed");
     }
 
     int bind_resp = bind(server->socket, (struct sockaddr *)&server->address, sizeof(server->address));

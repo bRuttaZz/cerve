@@ -11,6 +11,9 @@
 #include <string.h>
 #include <errno.h>
 
+// globals
+int g_server_port = 8000;
+int g_worker_count = 4;
 
 pthread_mutex_t g_job_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t g_job_cond_new = PTHREAD_COND_INITIALIZER;
@@ -140,7 +143,7 @@ int _close_all_workers(pthread_t *thread_ids, int thread_count) {
     pthread_mutex_unlock(&g_job_mutex);
 
     for (int i=0; i<thread_count; i++) {
-        g_logger.info("[listener] closing worker [%d]", i);
+        g_logger.info("[listener] closing worker [%d]", i+1);
         // pthread_cancel(thread_ids[i]);
         if (pthread_join(thread_ids[i], NULL) !=0) {
             g_logger.error("[listener] error closing worker thread [%d]", i);

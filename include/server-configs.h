@@ -25,9 +25,13 @@
 "                   defaults to 4 \n" \
 "   -p  --port      system port at which the server to listen for connections. \n"\
 "                   defaults to 8000 \n"\
+"   --disable-socket-reuse      if the flag is provided the SO_REUSEADDR will not be set. \n"\
+
 
 extern int g_server_port;
 extern int g_worker_count;
+
+extern int g_enable_socket_reuse;   //  if set to 0 (default to 1), SO_REUSEADDR will not be enabled
 
 /**
 @brief configure values based on CLI arguments

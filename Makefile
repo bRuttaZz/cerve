@@ -19,7 +19,7 @@ PROD_FLAGS = -O2 -s
 
 
 help:	## Show all Makefile targets.
-	@echo -e "\nCerve v$(VERSION)\n"
+	@echo  "\nCerve v$(VERSION)\n"
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}'
 
 test: 	## run test cases

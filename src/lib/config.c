@@ -8,10 +8,6 @@
 #define GLOBAL_CONFIGS
 // may be to do the configurations only once
 
-// defaults
-int g_server_port = 8000;
-int g_worker_count = 4;
-
 
 #endif // GLOBAL_CONFIGS
 
@@ -71,6 +67,8 @@ int set_config_from_args(int argc, char** argv) {
             }
             g_logger.level = _log_level - 1;
 
+        } else if (strcmp(argv[i], "--disable-socket-reuse") == 0) {
+            g_enable_socket_reuse = 0;
         } else {
             // not supported
             fprintf(stderr, "invalid argument : %s\n\n", argv[i]);

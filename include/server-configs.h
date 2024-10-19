@@ -25,7 +25,7 @@
 "                   defaults to 4 \n" \
 "   -p  --port      system port at which the server to listen for connections. \n"\
 "                   defaults to 8000 \n"\
-"   --disable-socket-reuse      if the flag is provided the SO_REUSEADDR will not be set. \n"\
+"   --enable-socket-reuse      (flag) if provided the SO_REUSEADDR will be set. \n"\
 
 
 extern int g_server_port;

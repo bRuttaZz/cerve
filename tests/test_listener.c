@@ -12,9 +12,7 @@
 void* _listener_thread(void * _) {
     int status = start_listener();
     if (status != -3) {
-        char msg[100];
-        sprintf(msg, "[TEST] error in listner [%d] . Current state : %d !", status, get_server_state());
-        g_logger.error(msg);
+        g_logger.error("[TEST] error in listner [%d] . Current state : %d !", status, get_server_state());
         exit(-3);
     };
     g_logger.info("[TEST] server closed successfully on close signal!");
@@ -23,7 +21,6 @@ void* _listener_thread(void * _) {
 
 void test_listener() {
     g_logger.info("[TEST] testing SERVER LISTENER..\n");
-    char msgs[200];
     char resp[3];
     char port[5];
     pthread_t thread_id;
@@ -36,9 +33,7 @@ void test_listener() {
 
     int thread_resp = pthread_create(&thread_id, NULL, _listener_thread, NULL);
     if (thread_resp != 0) {
-        char error_msg[50] ;
-        sprintf(error_msg, "[TEST] error spin server thread! [%d]", thread_resp);
-        g_logger.error(error_msg);
+        g_logger.error("[TEST] error spin server thread! [%d]", thread_resp);
         exit(-1);
     }
 
@@ -52,8 +47,7 @@ void test_listener() {
     sprintf(port, "%d", g_server_port);
     g_logger.info("[TEST] sending test message to server..\n");
     raise_http_request("localhost", port, "/", "", "GET", resp, 3); // raise request
-    sprintf(msgs, "[TEST] message received from thread : %s\n", resp);
-    g_logger.info(msgs);
+    g_logger.info("[TEST] message received from thread : %s\n", resp);
 
     g_logger.info("[TEST] closing server thread..");
     close_listener();

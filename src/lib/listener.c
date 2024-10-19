@@ -24,6 +24,11 @@ int _g_job_sock = 0;
 struct Server *_g_server = NULL;
 char _g_server_name[INET_ADDRSTRLEN];
 
+int _g_thread_identity = 0;
+pthread_mutex_t _g_thread_identity_mut = PTHREAD_MUTEX_INITIALIZER;     // to access thread identity
+pthread_cond_t _g_thread_identity_sig = PTHREAD_COND_INITIALIZER;
+
+
 
 /**
 @brief get server state
@@ -64,11 +69,19 @@ void _set_server_state(enum ListenerEvent state) {
 @brief http worker (client socket handler)
 */
 void* worker(void* _) {
+    int thread_id;
     int job;
     int bytes_read;
     char buffer[1024];
-    char sys_msgs[200];
     char response_msg[] = "ok";
+
+    pthread_mutex_lock(&_g_thread_identity_mut);
+    _g_thread_identity++;
+    thread_id = _g_thread_identity;
+
+    g_logger.info("[worker %d] startup complete!", thread_id);
+    pthread_cond_signal(&_g_thread_identity_sig);
+    pthread_mutex_unlock(&_g_thread_identity_mut);
 
     while (1) {
         // look for new job
@@ -79,26 +92,29 @@ void* worker(void* _) {
         // look for process termination
         if (get_server_state() == SERVER_EVENT_CLOSED) {
             // process termination sign
+            pthread_cond_signal(&g_worker_cond_available);
             pthread_mutex_unlock(&g_job_mutex);
-            g_logger.debug("[worker] Termination signal! worker terminated!");
+            g_logger.debug("[worker %d] Termination signal! worker terminated!", thread_id);
             break;
         }
         job = _g_job_sock;
         _g_job_sock = 0;
+        pthread_cond_signal(&g_worker_cond_available);
         pthread_mutex_unlock(&g_job_mutex);
+
+        g_logger.debug("[worker %d] Got new sock", thread_id);
 
         // do the work with the sock
         bytes_read = read(job, buffer, 1024);
         if (bytes_read < 0) {
-            g_logger.error("[worker] Error reading data from socket. Connection skipped!");
+            g_logger.error("[worker %d] Error reading data from socket. Connection skipped!", thread_id);
             continue;;
         }
-        sprintf(sys_msgs, "[worker] got message : (%d)", bytes_read);
-        g_logger.debug(sys_msgs);
+        g_logger.debug("[worker %d] got message : (%d)", thread_id, bytes_read);
         write(job, response_msg, strlen(response_msg));
 
         close(job);
-        g_logger.debug("[worker] reponse wrote and connection closed!");
+        g_logger.debug("[worker %d] reponse wrote and connection closed!", thread_id);
 
         pthread_mutex_lock(&g_job_mutex);
         pthread_cond_signal(&g_worker_cond_available);
@@ -114,7 +130,6 @@ void* worker(void* _) {
 @returns - number of error cases . 0 for success
 */
 int _close_all_workers(pthread_t *thread_ids, int thread_count) {
-    char msg[100];
     int errors = 0;
 
     g_logger.debug("[listener] killing all workers!");
@@ -125,12 +140,10 @@ int _close_all_workers(pthread_t *thread_ids, int thread_count) {
     pthread_mutex_unlock(&g_job_mutex);
 
     for (int i=0; i<thread_count; i++) {
-        sprintf(msg, "[listener] closing worker [%d]", i);
-        g_logger.info(msg);
+        g_logger.info("[listener] closing worker [%d]", i);
         // pthread_cancel(thread_ids[i]);
         if (pthread_join(thread_ids[i], NULL) !=0) {
-            sprintf(msg, "[listener] error closing worker thread [%d]", i);
-            g_logger.error(msg);
+            g_logger.error("[listener] error closing worker thread [%d]", i);
             errors++;
         }
     }
@@ -144,25 +157,28 @@ int _close_all_workers(pthread_t *thread_ids, int thread_count) {
 */
 int listener(struct Server * server) {
     int _conn_sock;
-    char sys_msgs[200];
     int address_len = sizeof(server->address);
 
     pthread_t thread_ids[g_worker_count];
     int threads[g_worker_count];
 
+    // spin up all threads
     for (int i=0; i<g_worker_count; i++) {
         threads[i] = i;
         int thread_resp = pthread_create(&thread_ids[i], NULL, worker, &threads[i]);
         if (thread_resp != 0) {
-            char error_msg[50] ;
-            sprintf(error_msg, "[listener] error spin server thread! [%d]", thread_resp);
-            g_logger.error(error_msg);
+            g_logger.error("[listener] error spin server thread! [%d]", thread_resp);
             return -1;
         }
-        sprintf(sys_msgs, "created worker [%d]", i+1);
-        g_logger.info(sys_msgs);
+        g_logger.debug("created worker [%d]", i+1);
     }
 
+    g_logger.debug("[listener] waiting for worker startup!");
+    pthread_mutex_lock(&_g_thread_identity_mut);
+    if (_g_thread_identity < g_worker_count) {
+        pthread_cond_wait(&_g_thread_identity_sig, &_g_thread_identity_mut);
+    }
+    pthread_mutex_unlock(&_g_thread_identity_mut);
 
     if (inet_ntop(AF_INET, &(server->address.sin_addr), _g_server_name, sizeof(_g_server_name)) == NULL) {
             g_logger.error("[listener] error getting ip expansion: inet_ntop\n");
@@ -171,8 +187,8 @@ int listener(struct Server * server) {
             return -2;
     }
     // listen for request
-    sprintf(sys_msgs, "listening at http://%s:%d \n", _g_server_name, server->port);
-    g_logger.info(sys_msgs);
+    g_logger.info("listening at \e]8;;http://%s:%d\e\\http://%s:%d\e]8;;\e\\ \n",
+        _g_server_name, server->port, _g_server_name, server->port);
     _set_server_state(SERVER_EVENT_STARTUP_COMPLETED);
 
     while (1) {
@@ -203,8 +219,7 @@ int listener(struct Server * server) {
         g_logger.debug("got new connection..\n");
 
         if (_conn_sock<=0) {
-            sprintf(sys_msgs, "[listener] server socket connection interrupted. access error : %d", _conn_sock);
-            g_logger.error(sys_msgs);
+            g_logger.error("[listener] server socket connection interrupted. access error : %d", _conn_sock);
             _close_all_workers(thread_ids, g_worker_count);
             g_logger.error("[listener] terminated!");
             return -3;
@@ -248,7 +263,7 @@ int start_listener() {
     _set_server_state(SERVER_EVENT_STARTING);
     struct Server cerve;
     if (
-        server_constructor(&cerve, AF_INET, SOCK_STREAM, 0, g_server_port, 1, INADDR_ANY, listener)
+        server_constructor(&cerve, AF_INET, SOCK_STREAM, 0, g_server_port, g_worker_count, INADDR_ANY, listener)
     ) {
         g_logger.error("Error creating server construct!");
         return 1;

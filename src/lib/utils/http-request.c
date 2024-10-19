@@ -19,9 +19,7 @@ void raise_http_request(char *hostname, char *port, char *path, char *req_text, 
 
     // get address info (DNS lookup)
     if (getaddrinfo(hostname, port, &hints, &res) != 0) {
-        char err_msg[100] = "";
-        sprintf(err_msg, "[raise_http_request] error resolving '%s:%s'\n", hostname, port);
-        g_logger.error(err_msg);
+        g_logger.error("[raise_http_request] error resolving '%s:%s'\n", hostname, port);
         exit(6);    // exit code mimics `curl`
     }
 

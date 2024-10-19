@@ -19,13 +19,11 @@ int _launch(struct Server * server) {
     int address_len = sizeof(server->address);
     int new_sock;
     char buffer[1024];
-    char msgs[500];
     char response_msg[] = "ok";
     int bytes_read;
 
     // listen for request
-    sprintf(msgs, "[launch thread] waiting for new socket connection at port %d ..\n", server->port);
-    g_logger.info(msgs);
+    g_logger.info("[launch thread] waiting for new socket connection at port %d ..\n", server->port);
 
     pthread_mutex_lock(&client_read_mutex);
     g_port = server->port;
@@ -40,8 +38,7 @@ int _launch(struct Server * server) {
         perror("[launch thread] Error reading data from socket\n");
         exit(-1);
     }
-    sprintf(msgs, "[launch thread] got message : (%d)\n", bytes_read);
-    g_logger.debug(msgs);
+    g_logger.debug("[launch thread] got message : (%d)\n", bytes_read);
     write(new_sock, response_msg, strlen(response_msg));
 
     // wait to the acquire the lock (only for test server (otherwise the port enter into `TIME_WAIT` state))
@@ -64,15 +61,12 @@ void* _listen_thread(void * _) {
 }
 
 void test_server_constructor() {
-    char msgs[200];
     g_logger.info("[TEST] testing SERVER CONSTRUCT..\n");
     pthread_t thread_id;
 
     int thread_resp = pthread_create(&thread_id, NULL, _listen_thread, NULL);
     if (thread_resp != 0) {
-        char error_msg[50] ;
-        sprintf(error_msg, "[TEST] error spin server thread! [%d]", thread_resp);
-        g_logger.error(error_msg);
+        g_logger.error("[TEST] error spin server thread! [%d]", thread_resp);
         exit(-1);
     }
 
@@ -85,8 +79,7 @@ void test_server_constructor() {
     sprintf(port, "%d", g_port);
     g_logger.info("[TEST] sending test message to server..\n");
     raise_http_request("localhost", port, "/", "", "GET", resp, 3); // raise request
-    sprintf(msgs, "[TEST] message received from thread : %s\n", resp);
-    g_logger.info(msgs);
+    g_logger.info("[TEST] message received from thread : %s\n", resp);
     pthread_mutex_unlock(&client_read_mutex);                   // unlock the mutex
     // (usage of mutex: only for removing the testserver issue related to port `TIME_WAIT` state)
 

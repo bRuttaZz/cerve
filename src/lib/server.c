@@ -43,17 +43,13 @@ int server_constructor(
 
     server->socket = socket(address_family, socket_type, protocol);
     if (server->socket <= 0) {
-        char error_message[50];
-        sprintf(error_message, "Failed to create socket : %d \n", server->socket);
-        g_logger.error(error_message);
+        g_logger.error("Failed to create socket : %d \n", server->socket);
         return 1;
     }
 
     int bind_resp = bind(server->socket, (struct sockaddr *)&server->address, sizeof(server->address));
     if (bind_resp < 0){
-        char error_message[75];
-        sprintf(error_message, "Failed to bind socket (%d) on port %d! error : %d\n", server->socket, port, bind_resp);
-        g_logger.error(error_message);
+        g_logger.error("Failed to bind socket (%d) on port %d! error : %d\n", server->socket, port, bind_resp);
         return 2;
     };
     if (server->port == 0) {

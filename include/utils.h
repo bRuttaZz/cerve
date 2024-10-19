@@ -13,10 +13,10 @@ enum LogLevel {
 
 struct Logger {
     enum LogLevel level;
-    void (*debug) (const char* message);
-    void (*info) (const char* message);
-    void (*warning) (const char* message);
-    void (*error) (const char* message);
+    void (*debug) (const char* message, ...);
+    void (*info) (const char* message, ...);
+    void (*warning) (const char* message, ...);
+    void (*error) (const char* message, ...);
 };
 
 extern struct Logger g_logger;

@@ -1,12 +1,16 @@
 #include <stdio.h>
 
-void test_server_constructor(void);
-void test_listener(void);
+int test_server_constructor(void);
+int test_listener(void);
 
 int main() {
-    test_server_constructor();
+    int status;
+    status = test_server_constructor();
+    if (status) return status;
+
     printf("\n\n");
-    test_listener();
+    status = test_listener();
+    if (status) return status;
 
     return 0;
 }

@@ -19,9 +19,9 @@ void* _listener_thread(void * _) {
     return  NULL;
 }
 
-void test_listener() {
+int test_listener() {
     g_logger.info("[TEST] testing SERVER LISTENER..\n");
-    char resp[3];
+    char resp[4];
     char port[5];
     pthread_t thread_id;
     enum ListenerEvent server_event;
@@ -46,11 +46,20 @@ void test_listener() {
 
     sprintf(port, "%d", g_server_port);
     g_logger.info("[TEST] sending test message to server..\n");
-    raise_http_request("localhost", port, "/", "", "GET", resp, 3); // raise request
-    g_logger.info("[TEST] message received from thread : %s\n", resp);
-
+    int resp_status = raise_http_request("localhost", port, "/", "", "GET", resp, 4); // raise request
+    if (resp_status != 0) {
+        close_listener();
+        g_logger.error("[TEST] error getting request reponse (client failure) : %d", resp_status);
+        return -1;
+    }
     g_logger.info("[TEST] closing server thread..");
     close_listener();
+
+    if (strcmp(resp, "HTTP")) {
+        g_logger.error("[TEST] unexpected response from server : %s\n", resp);
+        return -1;
+    }
+    g_logger.info("[TEST] message received from thread : %s\n", resp);
     server_event = get_server_state();
     while (server_event != SERVER_EVENT_CLOSED) {
         server_event = wait_server_state_change();
@@ -59,7 +68,8 @@ void test_listener() {
     thread_resp = pthread_join(thread_id, NULL);
     if (thread_resp !=0) {
         g_logger.error("[TEST] error closing server thread!\n");
-        exit(-1);
+        return -1;
     }
     g_logger.info("[TEST] SERVER LISTENER ✅\n\n");
+    return 0;
 }

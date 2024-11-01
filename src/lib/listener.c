@@ -1,6 +1,7 @@
 #include "../../include/server.h"
 #include "../../include/server-configs.h"
 #include "../../include/utils.h"
+#include "../../include/messages.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -74,9 +75,13 @@ void _set_server_state(enum ListenerEvent state) {
 void* worker(void* _) {
     int thread_id;
     int job;
-    int bytes_read;
-    char buffer[1024];
-    char response_msg[] = "ok";
+    Request request;
+    int request_read_status;
+    char response_msg[] = "HTTP/1.1 200 OK\n\nOK";
+
+    request.location = NULL;
+    request.method = NULL;
+    request.version = NULL;
 
     pthread_mutex_lock(&_g_thread_identity_mut);
     _g_thread_identity++;
@@ -108,14 +113,26 @@ void* worker(void* _) {
         g_logger.debug("[worker %d] Got new sock", thread_id);
 
         // do the work with the sock
-        bytes_read = read(job, buffer, 1024);
-        if (bytes_read < 0) {
-            g_logger.error("[worker %d] Error reading data from socket. Connection skipped!", thread_id);
-            continue;;
+        request_read_status = read_http_request(job, &request);
+        if (request_read_status < 0) {
+            g_logger.error("[worker %d] Error reading data from socket. Connection skipped! : %d", thread_id, request_read_status);
+            close(job);
+            continue;
         }
-        g_logger.debug("[worker %d] got message : (%d)", thread_id, bytes_read);
+        if (request_read_status > 0) {
+            if (request_read_status == 2) {
+                g_logger.error("[worker %d] Invalid http method! Skipping connection!", thread_id, request_read_status);
+            } else {
+                g_logger.error("[worker %d] Malformmatted request! Skipping connection : %d", thread_id, request_read_status);
+            }
+            free_request(&request);
+            close(job);
+            continue;
+        }
+        g_logger.info("[worker %d] request: %s - %s @ %s", thread_id, request.version, request.method, request.location);
         write(job, response_msg, strlen(response_msg));
 
+        free_request(&request);
         close(job);
         g_logger.debug("[worker %d] reponse wrote and connection closed!", thread_id);
 
@@ -217,16 +234,15 @@ int listener(struct Server * server) {
         }
 
         // listen for new socket connection
-        g_logger.debug("looking for new connection..\n");
+        g_logger.debug("[listener] looking for new connection..");
         _conn_sock = accept(server->socket, (struct sockaddr *)&server->address, (socklen_t *)&address_len);
-        g_logger.debug("got new connection..\n");
-
         if (_conn_sock<=0) {
             g_logger.error("[listener] server socket connection interrupted. access error : %d", _conn_sock);
             _close_all_workers(thread_ids, g_worker_count);
             g_logger.error("[listener] terminated!");
             return -3;
         }
+        g_logger.debug("[listener] got new connection..");
 
         pthread_mutex_lock(&g_job_mutex);
         _g_job_sock = _conn_sock;

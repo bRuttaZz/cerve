@@ -60,14 +60,14 @@ void* _listen_thread(void * _) {
     return  NULL;
 }
 
-void test_server_constructor() {
+int test_server_constructor() {
     g_logger.info("[TEST] testing SERVER CONSTRUCT..\n");
     pthread_t thread_id;
 
     int thread_resp = pthread_create(&thread_id, NULL, _listen_thread, NULL);
     if (thread_resp != 0) {
         g_logger.error("[TEST] error spin server thread! [%d]", thread_resp);
-        exit(-1);
+        return -1;
     }
 
     pthread_mutex_lock(&client_read_mutex);                     // lock the mutex
@@ -87,7 +87,8 @@ void test_server_constructor() {
     thread_resp = pthread_join(thread_id, NULL);
     if (thread_resp !=0) {
         g_logger.error("[TEST] error closing server thread!\n");
-        exit(-1);
+        return -1;
     }
     g_logger.info("[TEST] SERVER CONSTRUCT ✅\n\n");
+    return 0;
 }

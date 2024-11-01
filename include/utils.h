@@ -29,9 +29,16 @@ extern struct Logger g_logger;
 @param path - request path
 @param req_text - request string to be sent (note: the content type will always be text/plain)
 @param method - http method to be used
-@returns response buffer
+@returns
+    0: success
+    1: error creating conneciton socket
+    6: error resolving hostname
+    7: error connecting to resolved host ip
+    8: error sending request
+    9: error recieving response
+    -1: memory error
 */
-void raise_http_request(char *hostname, char *port, char *path, char *req_text, char *method, char *resp_buffer, int max_recv_len);
+int raise_http_request(char *hostname, char *port, char *path, char *req_text, char *method, char *resp_buffer, int max_recv_len);
 
 
 #endif /* UTILS_H */

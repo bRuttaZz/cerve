@@ -9,7 +9,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-int g_enable_socket_reuse = 0;
+int g_enable_socket_reuse = 1;
 
 /**
 @brief create a server to start with

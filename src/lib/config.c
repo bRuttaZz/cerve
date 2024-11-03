@@ -3,13 +3,10 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <sys/stat.h>
 
-#ifndef GLOBAL_CONFIGS
-#define GLOBAL_CONFIGS
-// may be to do the configurations only once
-
-
-#endif // GLOBAL_CONFIGS
+char *g_custom_resp_header_file_path = "";
+char *g_custom_serve_directory = ".";
 
 int _check_if_argument_available(int index, int argc, char *arg) {
     if (index++ >= argc -1 ) {
@@ -69,6 +66,27 @@ int set_config_from_args(int argc, char** argv) {
 
         } else if (strcmp(argv[i], "--disable-socket-reuse") == 0) {
             g_enable_socket_reuse = 0;
+
+        } else if (strcmp(argv[i], "--res-headers") == 0) {
+            if (_check_if_argument_available(i, argc, argv[i])) return 126;
+            i++;
+            g_custom_resp_header_file_path = argv[i];
+            FILE *file = fopen(g_custom_resp_header_file_path, "r");
+            if (!file) {
+                fprintf(stderr, "cannot access provided header file ! : %s\n", g_custom_resp_header_file_path);
+                return 2;
+            }
+
+        } else if (strcmp(argv[i], "--serve-dir") == 0) {
+            if (_check_if_argument_available(i, argc, argv[i])) return 126;
+            i++;
+            g_custom_serve_directory = argv[i];
+            struct stat st;
+            if (stat(g_custom_serve_directory, &st) != 0 || !S_ISDIR(st.st_mode)) {
+                fprintf(stderr, "cannot access provided serve directory! : %s \n", g_custom_serve_directory);
+                return 2;
+            }
+
         } else {
             // not supported
             fprintf(stderr, "invalid argument : %s\n\n", argv[i]);

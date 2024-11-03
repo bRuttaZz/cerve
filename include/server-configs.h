@@ -26,12 +26,21 @@
 "   -p  --port      system port at which the server to listen for connections. \n"\
 "                   defaults to 8000 \n"\
 "   --disable-socket-reuse      (flag) if provided the SO_REUSEADDR will not be set. \n"\
+"   --res-headers   add custom response headers. Defaults to none.\n" \
+"                   expects a newline seperated utf-8 text files with colon seperated key values.\n" \
+"                   syntax reference: https://httpwg.org/specs/rfc9112.html#rfc.section.2.1 \n" \
+"   --serve-dir     specify custom serve directory.\n" \
+"                   defaults to the current working directory\n" \
 
 
 extern int g_server_port;
 extern int g_worker_count;
 
 extern int g_enable_socket_reuse;   //  if set to 0 (default to 1), SO_REUSEADDR will not be enabled
+
+// custom config files
+extern char * g_custom_resp_header_file_path;   // header file to be served along wth each response
+extern char * g_custom_serve_directory;         // directory to be served over http
 
 /**
 @brief configure values based on CLI arguments

@@ -1,10 +1,13 @@
 #include "../../include/messages.h"
 #include "../../include/utils.h"
+#include <stdio.h>
 #include <ctype.h>
 #include <time.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <sys/stat.h>
+
 
 const int g_request_line_buff_size = 8000;
 const char *g_request_methods[] = {
@@ -106,7 +109,184 @@ void free_request(Request *req) {
     req->method = NULL;
 }
 
-
-int write_http_response(int sock, Request *request) {
+/**
+@brief write headers to the socket
+*/
+int _write_headers(int sock, char **custom_header) {
+    if (strlen(*custom_header)) {
+        write(sock, *custom_header, strlen(*custom_header));
+        write(sock, "\r\n", 2);
+    }
+    write(sock, CERVE_RESPONSE_HEADERS, strlen(CERVE_RESPONSE_HEADERS));
+    write(sock, "\r\n", 2);
     return 0;
+}
+
+/**
+@brief helper fun to transform string to lower
+*/
+void _convert_to_lower(char* str) {
+    for (int i = 0; str[i] != '\0'; i++) {
+        str[i] = tolower((unsigned char)str[i]);
+    }
+}
+
+/**
+@brief get mime type of a file
+*/
+const char* _get_mime_type(const char* filename) {
+    char* ext = strrchr(filename, '.');
+    if (!ext) {
+        return "application/octet-stream"; // default
+    }
+    _convert_to_lower(ext);
+
+    if (strcmp(ext, ".txt") == 0) return "text/plain";
+    if (strcmp(ext, ".html") == 0) return "text/html";
+    if (strcmp(ext, ".jpg") == 0 || strcmp(ext, ".jpeg") == 0) return "image/jpeg";
+    if (strcmp(ext, ".png") == 0) return "image/png";
+    if (strcmp(ext, ".gif") == 0) return "image/gif";
+    if (strcmp(ext, ".json") == 0) return "application/json";
+    // TODO: adding more mimetypes
+
+    return "application/octet-stream"; // default again
+}
+
+
+/**
+@brief get a file from the path
+returns
+    0: if succeed
+    1: if not able to resolve the filepath
+    2: if a directory
+*/
+int _get_file(const char* filename, FILE** file) {
+    struct stat file_info;
+
+    if (stat(filename, &file_info) == 0) {
+        if (S_ISREG(file_info.st_mode)) {
+            *file = fopen(filename, "r");
+            if (!*file) {
+                return 1;
+            }
+            return 0;
+        }
+        else if (S_ISDIR(file_info.st_mode))
+            return 2;
+    }
+    return 1;
+}
+
+/**
+@brief check for file/html pattern in server
+@param filename - name of file pattern
+@param file - file object
+@returns
+    0: on successfully found a file
+    1: on not finding any file
+    2: on unexpected search errors
+*/
+int _check_for_file_pattern_in_path(char** file_name, FILE** file) {
+    int resp_status;
+    int last_try = 0;
+
+    while (1) {
+        resp_status = _get_file(*file_name, file);
+        g_logger.debug("search result : %d : %s", resp_status, *file_name);
+        if (resp_status==0) {
+            return 0;
+        } else if (last_try) {
+            break;
+        } else if (resp_status==1) {        // if no path check for html file
+            strcat(*file_name, ".html");
+            last_try ++;
+        } else if (resp_status==2) {        // if dir check for index file
+            if ((*file_name)[strlen(*file_name)-1] != '/')
+                strcat(*file_name, "/");
+            strcat(*file_name, "index.html");
+            last_try ++;
+        } else {
+            g_logger.error("Error searching for file paths %d!", resp_status);
+            return 2;
+        }
+    }
+    return 1;
+}
+
+
+/**
+@brief write http response to the wire and return the status code
+@param sock - socket object to write
+@param request - http request struct
+@param resp_headers - http response headers
+@param serve_dir - serve directory
+*/
+int write_http_response(int sock, Request *request, char **resp_headers, const char *serve_dir) {
+    long int file_size;
+    char _msg[1024];
+    char *file_name;
+    FILE *file = NULL;
+
+    // TODO: catch write errors
+    write(sock, request->version, strlen(request->version));
+    //                                                                  100 for adding serching purposes
+    file_name = malloc((strlen(request->location) + strlen(serve_dir) + 100 + 1) * sizeof(char));
+    if (!file_name) {
+        sprintf(_msg, " 500 Internal Server Error\r\n");
+        write(sock, _msg, strlen(_msg));
+        _write_headers(sock, resp_headers);
+
+        // the content
+        sprintf(_msg, "Content-Type: text/html; charset=UTF-8\r\n"
+            "Content-Length: %ld\r\n\r\n", strlen(RESPONSE_BODY_500));
+        write(sock, _msg, strlen(_msg));
+        write(sock, RESPONSE_BODY_500, strlen(RESPONSE_BODY_500));
+
+        g_logger.error("[http write error] error allocating mem");
+        return 500;
+    }
+    strcat(file_name, serve_dir);
+    strcat(file_name, request->location);
+
+
+    if (!_check_for_file_pattern_in_path(&file_name, &file)){
+        // found file
+        sprintf(_msg, " 200 Ok\r\n");
+        write(sock, _msg, strlen(_msg));
+        _write_headers(sock, resp_headers);
+
+        fseek(file, 0, SEEK_END);
+        file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        sprintf(_msg, "Content-Type: %s\r\n"
+            "Content-Length: %ld\r\n\r\n", _get_mime_type(file_name), file_size);
+        write(sock, _msg, strlen(_msg));
+
+        while (1) {
+            file_size = fread(_msg, sizeof(char), 1024, file);
+            if (file_size <= 0)
+                break;
+            write(sock, _msg, file_size);
+        }
+
+        free(file_name);
+        fclose(file);
+        return 200;
+    };
+
+    // no file
+    sprintf(_msg, " 404 Not Found\r\n");
+    write(sock, _msg, strlen(_msg));
+    _write_headers(sock, resp_headers);
+
+    sprintf(_msg, "Content-Type: text/html; charset=UTF-8\r\n"
+        "Content-Length: %ld\r\n\r\n", strlen(RESPONSE_BODY_404));
+    write(sock, _msg, strlen(_msg));
+    write(sock, RESPONSE_BODY_404, strlen(RESPONSE_BODY_404));
+
+    g_logger.debug("path not found %s (%s)", request->location, file_name);
+
+    free(file_name);
+    return 404;
 }

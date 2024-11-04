@@ -125,7 +125,7 @@ int _load_header_file(char **header_dat) {
             return 12;
         }
         strncpy(*header_dat, header, file_size);
-        *header_dat[file_size] = '\0';
+        *header_dat[file_size] = '\0';  // just a safety check (incase :)
         free(raw_header_mem_pointer);
 
         return 0;
@@ -145,11 +145,12 @@ int _load_header_file(char **header_dat) {
 void* worker(void* _) {
     int thread_id;
     int job;
-    Request request;
     int request_read_status;
+    int status_code;
     char *cust_response_headers = "";
-    char response_msg[] = "HTTP/1.1 200 OK\n\nOK";
+    char *serve_dir = "";
 
+    Request request;
     request.location = NULL;
     request.method = NULL;
     request.version = NULL;
@@ -164,6 +165,14 @@ void* worker(void* _) {
         close_listener();
         return  NULL;
     }
+
+    serve_dir = (char *) malloc(sizeof(char) * strlen(g_custom_serve_directory));
+    if (!serve_dir) {
+        g_logger.error("[worker %d] Error booting worker thread! mem allocation error", thread_id);
+        close_listener();
+        return NULL;
+    }
+    strcpy(serve_dir, g_custom_serve_directory);
 
     // worker loadup ends
     g_logger.info("[worker %d] startup complete!", thread_id);
@@ -208,8 +217,10 @@ void* worker(void* _) {
             close(job);
             continue;
         }
-        g_logger.info("[worker %d] request: %s - %s @ %s", thread_id, request.version, request.method, request.location);
-        write(job, response_msg, strlen(response_msg));
+        g_logger.debug("[worker %d] request: %s - %s @ %s", thread_id, request.version, request.method, request.location);
+
+        status_code = write_http_response(job, &request, &cust_response_headers, serve_dir);
+        g_logger.info("[worker %d] res: %s - %s @ %s  \033[0m%d\033[0m", thread_id, request.version, request.method, request.location, status_code);
 
         free_request(&request);
         close(job);

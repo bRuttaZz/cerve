@@ -11,6 +11,7 @@
 #include <signal.h>
 #include <string.h>
 #include <errno.h>
+#include <ctype.h>
 
 // globals
 int g_server_port = 8000;
@@ -68,6 +69,75 @@ void _set_server_state(enum ListenerEvent state) {
     pthread_cond_signal(&_g_server_state_sig);
 }
 
+/**
+@brief load header file from given path
+// TODO: headerfile format validator
+*/
+int _load_header_file(char **header_dat) {
+    if (strlen(g_custom_resp_header_file_path)) {
+        // there is a custom header file
+        long file_size;
+        char *raw_header_mem_pointer;
+        char *header;
+        FILE * file = fopen(g_custom_resp_header_file_path, "r");
+        if (!file) {
+            g_logger.error("Error reading response headerfile");
+            return 2;
+        }
+        fseek(file, 0, SEEK_END);
+        file_size = ftell(file);
+        fseek(file, 0, SEEK_SET);
+
+        raw_header_mem_pointer = (char *) malloc((file_size+1) * sizeof(char));
+        if (!raw_header_mem_pointer) {
+            g_logger.error("Not enough space to load the headerfile! : %d KB", file_size / 1000);
+            fclose(file);
+            return 12;
+        }
+
+        size_t read_size = fread(raw_header_mem_pointer, sizeof(char), file_size, file);
+        if (read_size != file_size) {
+            g_logger.error("Failed to read headerfile! : %d KB read", read_size/1000);
+            free(raw_header_mem_pointer);
+            fclose(file);
+            return 5;
+        }
+        raw_header_mem_pointer[file_size] = '\0';
+        fclose(file);
+        header = raw_header_mem_pointer;
+
+        // trim leading and trailing whitespaces
+        for (int i=0; i < strlen(header)-1; i++) {
+            if (isspace((unsigned char)*header))
+                header++;
+            else break;
+        }
+
+        // trim traling spaces
+        char * end = header + strlen(header) - 1;
+        while (end>header && isspace((unsigned char) *end)) end--;
+        *(end + 1) = '\0';
+
+        file_size = strlen(header);
+        *header_dat = (char *) malloc((file_size+1) * sizeof(char));
+        if (!*header_dat) {
+            g_logger.error("Not enough space to load the headerfile ! : %d KB", file_size / 1000);
+            return 12;
+        }
+        strncpy(*header_dat, header, file_size);
+        *header_dat[file_size] = '\0';
+        free(raw_header_mem_pointer);
+
+        return 0;
+    }
+    *header_dat = (char *) malloc(sizeof(char));
+    if (!*header_dat) {
+        g_logger.error("Error loading headerfile (not enough mem)");
+        return 12;
+    }
+    *header_dat[0] = '\0';
+    return 0;
+}
 
 /**
 @brief http worker (client socket handler)
@@ -77,6 +147,7 @@ void* worker(void* _) {
     int job;
     Request request;
     int request_read_status;
+    char *cust_response_headers = "";
     char response_msg[] = "HTTP/1.1 200 OK\n\nOK";
 
     request.location = NULL;
@@ -84,9 +155,17 @@ void* worker(void* _) {
     request.version = NULL;
 
     pthread_mutex_lock(&_g_thread_identity_mut);
+    // worker loadup
     _g_thread_identity++;
     thread_id = _g_thread_identity;
 
+    if (_load_header_file(&cust_response_headers)) {
+        g_logger.error("[worker %d] Error booting wroker thread!", thread_id);
+        close_listener();
+        return  NULL;
+    }
+
+    // worker loadup ends
     g_logger.info("[worker %d] startup complete!", thread_id);
     pthread_cond_signal(&_g_thread_identity_sig);
     pthread_mutex_unlock(&_g_thread_identity_mut);

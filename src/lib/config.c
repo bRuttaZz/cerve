@@ -81,6 +81,9 @@ int set_config_from_args(int argc, char** argv) {
             if (_check_if_argument_available(i, argc, argv[i])) return 126;
             i++;
             g_custom_serve_directory = argv[i];
+            if (g_custom_serve_directory[strlen(g_custom_serve_directory)-1] == '/') {
+                g_custom_serve_directory[strlen(g_custom_serve_directory)-1] = '\0';
+            }
             struct stat st;
             if (stat(g_custom_serve_directory, &st) != 0 || !S_ISDIR(st.st_mode)) {
                 fprintf(stderr, "cannot access provided serve directory! : %s \n", g_custom_serve_directory);

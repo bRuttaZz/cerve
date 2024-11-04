@@ -2,6 +2,7 @@
 #ifndef MESSAGES_H
 #define MESSAGES_H
 
+#define CERVE_RESPONSE_HEADERS "Server: Cerve"
 
 typedef struct {
     char *method;

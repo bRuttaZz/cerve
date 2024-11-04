@@ -105,3 +105,8 @@ void free_request(Request *req) {
     req->version = NULL;
     req->method = NULL;
 }
+
+
+int write_http_response(int sock, Request *request) {
+    return 0;
+}

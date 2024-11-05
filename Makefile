@@ -4,8 +4,10 @@ VERSION = $(shell cat VERSION)
 CC = gcc
 CFLAGS = -DVERSION=\"$(VERSION)\" -I./include
 
+ARCH = $(shell uname -m)
+
 # executable name
-EXEC = cerve_v$(VERSION)
+EXEC = cerve_v$(VERSION)_$(ARCH)
 
 ENTRY_POINT = src/main.c
 SRCS = $(foreach dir, src/lib src/lib/utils,$(wildcard $(dir)/*.c))

@@ -24,7 +24,7 @@
 "   -h --help       print help and exit \n"\
 "   --version       print version and exit \n" \
 "   -v --verbose    an integer between 1 and 4, inclusive of those values representing \n" \
-"                   different log levels. higher values for detailed logs. 1 for minum logging \n" \
+"                   different log levels. higher values for detailed logs. 1 for minimum logging \n" \
 "                   default to 4 \n" \
 "   -w --workers    number of workers to be used \n" \
 "                   defaults to 4 \n" \
@@ -32,7 +32,7 @@
 "                   defaults to 8000 \n"\
 "   --disable-socket-reuse      (flag) if provided the SO_REUSEADDR will not be set. \n"\
 "   --res-headers   add custom response headers. Defaults to none.\n" \
-"                   expects a newline seperated utf-8 text files with colon seperated key values.\n" \
+"                   expects a newline separated utf-8 text files with colon separated key values.\n" \
 "                   syntax reference: https://httpwg.org/specs/rfc9112.html#rfc.section.2.1 \n" \
 "   --serve-dir     specify custom serve directory.\n" \
 "                   defaults to the current working directory\n" \

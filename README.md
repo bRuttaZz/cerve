@@ -4,8 +4,9 @@
 
 **A multi-worker HTTP server written in C.**
 
-[![Release](https://img.shields.io/github/release/bruttazz/cerve.svg?style=flat-square)](https://github.com/bruttazz/cerve/releases/latest)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://github.com/bruttazz/cerve/blob/main/LICENSE)
+![unit-test status](https://github.com/bruttazz/cerve/actions/workflows/unit-tests.yml/badge.svg)
+[![Release](https://img.shields.io/github/release/bruttazz/cerve.svg?style=flat-square)](https://github.com/bruttazz/cerve/releases/latest)
 
 > Nothing too special, just another personal project of mine!
 

@@ -1,0 +1,52 @@
+name: "tagged-release"
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  tagged-release:
+    name: "Release Build"
+    runs-on: "ubuntu-latest"
+    timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     language: [ 'go' ]
+    permissions:
+      # required for all workflows
+      security-events: read
+      actions: write
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: "Build"
+        run: make build
+        working-directory: "."
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+        if: steps.test.outputs.exit_code == 0
+
+      - name: Upload Release Asset 386
+        id: upload-release-asset-386
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
+          asset_path: ./cerve_v${{ github.ref_name }}_x86_64
+          asset_name: cerve_v${{ github.ref_name }}_x86_64
+          asset_content_type: binary/octet-stream

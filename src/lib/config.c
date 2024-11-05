@@ -3,10 +3,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <sys/stat.h>
+#include <limits.h>
 
 char *g_custom_resp_header_file_path = "";
-char *g_custom_serve_directory = ".";
+char g_custom_serve_directory[PATH_MAX+1] = ".";
 
 int _check_if_argument_available(int index, int argc, char *arg) {
     if (index++ >= argc -1 ) {
@@ -71,8 +73,7 @@ int set_config_from_args(int argc, char** argv) {
             if (_check_if_argument_available(i, argc, argv[i])) return 126;
             i++;
             g_custom_resp_header_file_path = argv[i];
-            FILE *file = fopen(g_custom_resp_header_file_path, "r");
-            if (!file) {
+            if (access(g_custom_resp_header_file_path, R_OK) != 0 ) {
                 fprintf(stderr, "cannot access provided header file ! : %s\n", g_custom_resp_header_file_path);
                 return 2;
             }
@@ -80,14 +81,18 @@ int set_config_from_args(int argc, char** argv) {
         } else if (strcmp(argv[i], "--serve-dir") == 0) {
             if (_check_if_argument_available(i, argc, argv[i])) return 126;
             i++;
-            g_custom_serve_directory = argv[i];
-            if (g_custom_serve_directory[strlen(g_custom_serve_directory)-1] == '/') {
-                g_custom_serve_directory[strlen(g_custom_serve_directory)-1] = '\0';
+            if (argv[i][strlen(argv[i])-1] == '/') {
+                argv[i][strlen(argv[i])-1] = '\0';
             }
             struct stat st;
-            if (stat(g_custom_serve_directory, &st) != 0 || !S_ISDIR(st.st_mode)) {
-                fprintf(stderr, "cannot access provided serve directory! : %s \n", g_custom_serve_directory);
+            if (stat(argv[i], &st) != 0 || !S_ISDIR(st.st_mode)) {
+                fprintf(stderr, "cannot access provided serve directory! : %s \n", argv[i]);
                 return 2;
+            }
+            char *ptr;
+            ptr = realpath(argv[i], g_custom_serve_directory);
+            if (!ptr) {
+                fprintf(stderr, "error resolving provided serve directory! : %s\n", argv[i]);
             }
 
         } else {

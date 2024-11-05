@@ -2,6 +2,14 @@
 #ifndef UTILS_H
 #define UTILS_H
 
+#ifndef LOGGER_PREFIX_LEN
+#define LOGGER_PREFIX_LEN 4     // can be shorten to avoid logging prefix for lower order log levels
+#endif
+
+#ifndef DEFAULT_LOGLEVEL
+#define DEFAULT_LOGLEVEL 99
+#endif
+
 // logger
 // log becomes detailed as increaing the level (0-> error)
 enum LogLevel {
@@ -40,5 +48,12 @@ extern struct Logger g_logger;
 */
 int raise_http_request(char *hostname, char *port, char *path, char *req_text, char *method, char *resp_buffer, int max_recv_len);
 
+
+/**
+@brief get mime type of a file
+@param filename - filename to be used
+@return mimetype string
+*/
+const char* get_mime_type(const char* filename);
 
 #endif /* UTILS_H */

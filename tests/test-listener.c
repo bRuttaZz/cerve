@@ -23,6 +23,7 @@ int test_listener() {
     g_logger.info("[TEST] testing SERVER LISTENER..\n");
     char resp[4];
     char port[5];
+    int active_jobs = 0;
     pthread_t thread_id;
     enum ListenerEvent server_event;
 
@@ -52,6 +53,13 @@ int test_listener() {
         g_logger.error("[TEST] error getting request reponse (client failure) : %d", resp_status);
         return -1;
     }
+
+    g_logger.info("[TEST] waiting for the server thread to finish doing work!");
+    active_jobs = get_active_job_count();
+    while (active_jobs) {
+        active_jobs = wait_active_job_count_change();
+    }
+
     g_logger.info("[TEST] closing server thread..");
     close_listener();
 

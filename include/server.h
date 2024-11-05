@@ -38,6 +38,16 @@ enum ListenerEvent get_server_state(void);
 */
 enum ListenerEvent wait_server_state_change(void);
 
+/**
+@brief get the number of currently active jobs being done
+*/
+int get_active_job_count(void);
+
+/**
+@brief get the number of currently active jobs being processed
+after it changes
+*/
+int wait_active_job_count_change(void);
 
 /**
 @brief create a server to start with

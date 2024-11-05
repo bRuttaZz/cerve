@@ -20,10 +20,10 @@ const char *_LOGGER_PREFIX[] = {     // index should be in the order of `enum Lo
     "\033[32mINFO\033[0m",
     "\033[34mDEBUG\033[0m",
 };
-const int _LOGGER_PREFIX_LEN = 4;   // number of valid log level prefixes
+const int _LOGGER_PREFIX_LEN = LOGGER_PREFIX_LEN;   // number of valid log level prefixes
 
 // initializing logger with default values
-struct Logger g_logger = {.level=99, .debug=_debug, .info=_info, .warning=_warning, .error=_error};
+struct Logger g_logger = {.level=DEFAULT_LOGLEVEL, .debug=_debug, .info=_info, .warning=_warning, .error=_error};
 
 
 void _logger(enum LogLevel level, const char* msg, va_list format_args) {

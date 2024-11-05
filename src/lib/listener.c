@@ -14,8 +14,8 @@
 #include <ctype.h>
 
 // globals
-int g_server_port = 8000;
-int g_worker_count = 4;
+int g_server_port = DEFAULT_PORT;
+int g_worker_count = DEFAULT_WORKERS;
 
 pthread_mutex_t g_job_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t g_job_cond_new = PTHREAD_COND_INITIALIZER;
@@ -26,6 +26,7 @@ pthread_mutex_t _g_server_state_mut = PTHREAD_MUTEX_INITIALIZER;     // server s
 pthread_cond_t _g_server_state_sig = PTHREAD_COND_INITIALIZER;       // will be trigered on changin server state
 
 int _g_job_sock = 0;
+int _g_current_job_count = 0;
 struct Server *_g_server = NULL;
 char _g_server_name[INET_ADDRSTRLEN];
 
@@ -33,6 +34,7 @@ int _g_thread_identity = 0;
 pthread_mutex_t _g_thread_identity_mut = PTHREAD_MUTEX_INITIALIZER;     // to access thread identity
 pthread_cond_t _g_thread_identity_sig = PTHREAD_COND_INITIALIZER;
 
+char *_g_response_header;
 
 
 /**
@@ -59,6 +61,29 @@ enum ListenerEvent wait_server_state_change(void) {
 }
 
 /**
+@brief get the number of currently active jobs being done
+*/
+int get_active_job_count(void) {
+    int job_count = 0;
+    pthread_mutex_lock(&g_job_mutex);
+    job_count = _g_current_job_count;
+    pthread_mutex_unlock(&g_job_mutex);
+    return job_count;
+}
+
+/**
+@brief get the number of currently active jobs being processed
+after it changes
+*/
+int wait_active_job_count_change(void) {
+    int job_count = 0;
+    pthread_cond_wait(&g_worker_cond_available, &g_job_mutex);
+    job_count = _g_current_job_count;
+    pthread_mutex_unlock(&g_job_mutex);
+    return job_count;
+}
+
+/**
 @brief set new server state
 @param state - new state to set
 */
@@ -74,11 +99,10 @@ void _set_server_state(enum ListenerEvent state) {
 // TODO: headerfile format validator
 */
 int _load_header_file(char **header_dat) {
-    if (strlen(g_custom_resp_header_file_path)) {
+    if ( strlen(g_custom_resp_header_file_path)) {
         // there is a custom header file
         long file_size;
-        char *raw_header_mem_pointer;
-        char *header;
+        char *header_ptr;
         FILE * file = fopen(g_custom_resp_header_file_path, "r");
         if (!file) {
             g_logger.error("Error reading response headerfile");
@@ -88,46 +112,37 @@ int _load_header_file(char **header_dat) {
         file_size = ftell(file);
         fseek(file, 0, SEEK_SET);
 
-        raw_header_mem_pointer = (char *) malloc((file_size+1) * sizeof(char));
-        if (!raw_header_mem_pointer) {
+        *header_dat = (char *) malloc((file_size+1) * sizeof(char));
+        if (!*header_dat) {
             g_logger.error("Not enough space to load the headerfile! : %d KB", file_size / 1000);
             fclose(file);
             return 12;
         }
 
-        size_t read_size = fread(raw_header_mem_pointer, sizeof(char), file_size, file);
+        size_t read_size = fread(*header_dat, sizeof(char), file_size, file);
         if (read_size != file_size) {
             g_logger.error("Failed to read headerfile! : %d KB read", read_size/1000);
-            free(raw_header_mem_pointer);
+            free(*header_dat);
             fclose(file);
             return 5;
         }
-        raw_header_mem_pointer[file_size] = '\0';
+        (*header_dat)[file_size] = '\0';
         fclose(file);
-        header = raw_header_mem_pointer;
 
+        header_ptr = *header_dat;
         // trim leading and trailing whitespaces
-        for (int i=0; i < strlen(header)-1; i++) {
-            if (isspace((unsigned char)*header))
-                header++;
+        for (int i=0; i < strlen(header_ptr)-1; i++) {
+            if (isspace((unsigned char)*header_ptr))
+                (header_ptr)++;
             else break;
         }
 
         // trim traling spaces
-        char * end = header + strlen(header) - 1;
-        while (end>header && isspace((unsigned char) *end)) end--;
+        char * end = header_ptr + strlen(header_ptr) - 1;
+        while (end>header_ptr && isspace((unsigned char) *end)) end--;
         *(end + 1) = '\0';
 
-        file_size = strlen(header);
-        *header_dat = (char *) malloc((file_size+1) * sizeof(char));
-        if (!*header_dat) {
-            g_logger.error("Not enough space to load the headerfile ! : %d KB", file_size / 1000);
-            return 12;
-        }
-        strncpy(*header_dat, header, file_size);
-        *header_dat[file_size] = '\0';  // just a safety check (incase :)
-        free(raw_header_mem_pointer);
-
+        *header_dat = header_ptr;
         return 0;
     }
     *header_dat = (char *) malloc(sizeof(char));
@@ -160,16 +175,18 @@ void* worker(void* _) {
     _g_thread_identity++;
     thread_id = _g_thread_identity;
 
-    if (_load_header_file(&cust_response_headers)) {
-        g_logger.error("[worker %d] Error booting wroker thread!", thread_id);
+    cust_response_headers = (char *) malloc(sizeof(char) * (strlen(_g_response_header) + 1));
+    if (!cust_response_headers) {
+        g_logger.error("[worker %d] Error booting worker thread! mem allocation error.", thread_id);
         close_listener();
-        return  NULL;
+        return NULL;
     }
-
-    serve_dir = (char *) malloc(sizeof(char) * strlen(g_custom_serve_directory));
+    strcpy(cust_response_headers, _g_response_header);
+    serve_dir = (char *) malloc(sizeof(char) * (strlen(g_custom_serve_directory) + 1));
     if (!serve_dir) {
         g_logger.error("[worker %d] Error booting worker thread! mem allocation error", thread_id);
         close_listener();
+        free(cust_response_headers);
         return NULL;
     }
     strcpy(serve_dir, g_custom_serve_directory);
@@ -195,6 +212,7 @@ void* worker(void* _) {
         }
         job = _g_job_sock;
         _g_job_sock = 0;
+        _g_current_job_count++;
         pthread_cond_signal(&g_worker_cond_available);
         pthread_mutex_unlock(&g_job_mutex);
 
@@ -220,16 +238,24 @@ void* worker(void* _) {
         g_logger.debug("[worker %d] request: %s - %s @ %s", thread_id, request.version, request.method, request.location);
 
         status_code = write_http_response(job, &request, &cust_response_headers, serve_dir);
-        g_logger.info("[worker %d] res: %s - %s @ %s  \033[0m%d\033[0m", thread_id, request.version, request.method, request.location, status_code);
+        if (status_code < 0)
+            g_logger.error("[worker %d] socket closed before writing:"
+               " %s - %s @ %s  \033[0m%d\033[0m", thread_id, request.version, request.method, request.location, -status_code);
+        else
+            g_logger.info("[worker %d] res: %s - %s @ %s  \033[0m%d\033[0m", thread_id, request.version, request.method, request.location, status_code);
 
         free_request(&request);
         close(job);
         g_logger.debug("[worker %d] reponse wrote and connection closed!", thread_id);
 
         pthread_mutex_lock(&g_job_mutex);
+        _g_current_job_count--;
         pthread_cond_signal(&g_worker_cond_available);
         pthread_mutex_unlock(&g_job_mutex);
     }
+
+    free(cust_response_headers);
+    free(serve_dir);
     return NULL;
 }
 
@@ -268,9 +294,14 @@ int _close_all_workers(pthread_t *thread_ids, int thread_count) {
 int listener(struct Server * server) {
     int _conn_sock;
     int address_len = sizeof(server->address);
-
     pthread_t thread_ids[g_worker_count];
     int threads[g_worker_count];
+
+    if (_load_header_file(&_g_response_header)) {
+        g_logger.error("[listener] error loading header files!");
+        close_listener();
+        return  -1;
+    }
 
     // spin up all threads
     for (int i=0; i<g_worker_count; i++) {
@@ -372,7 +403,7 @@ int start_listener() {
     _set_server_state(SERVER_EVENT_STARTING);
     struct Server cerve;
     if (
-        server_constructor(&cerve, AF_INET, SOCK_STREAM, 0, g_server_port, g_worker_count, INADDR_ANY, listener)
+        server_constructor(&cerve, AF_INET, SOCK_STREAM, 0, g_server_port, SERVER_BACKLOG, INADDR_ANY, listener)
     ) {
         g_logger.error("Error creating server construct!");
         return 1;

@@ -1,0 +1,3 @@
+
+X-XSS-Protection: 0
+X-Frame-Options: SAMEORIGIN

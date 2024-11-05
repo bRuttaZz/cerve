@@ -11,6 +11,11 @@
 #define DBUG_MODE 0
 #endif // DBUG_MODE
 
+#define SERVER_BACKLOG 100
+
+#define DEFAULT_WORKERS 4
+#define DEFAULT_PORT 8000
+
 #define PROG_NAME "cerve"
 #define HELP_MSG  \
 "usage: cerve [OPTIONS] \n\n" \
@@ -40,7 +45,7 @@ extern int g_enable_socket_reuse;   //  if set to 0 (default to 1), SO_REUSEADDR
 
 // custom config files
 extern char * g_custom_resp_header_file_path;   // header file to be served along wth each response
-extern char * g_custom_serve_directory;         // directory to be served over http
+extern char g_custom_serve_directory[];         // directory to be served over http
 
 /**
 @brief configure values based on CLI arguments

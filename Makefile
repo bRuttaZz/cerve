@@ -15,7 +15,7 @@ TESTS += $(foreach dir, tests, $(wildcard $(dir)/*.c))
 DBUG_FLAGS = -Wall -g -DDBUG_MODE=1
 
 # production mode flags
-PROD_FLAGS = -O2 -s
+PROD_FLAGS = -O2 -s -DDEFAULT_LOGLEVEL=2 -DLOGGER_PREFIX_LEN=4
 
 
 help:	## Show all Makefile targets.

@@ -5,48 +5,46 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   tagged-release:
     name: "Release Build"
     runs-on: "ubuntu-latest"
-    timeout-minutes: ${{ (matrix.language == 'swift' && 120) || 360 }}
-    # strategy:
-    #   fail-fast: false
-    #   matrix:
-    #     language: [ 'go' ]
-    permissions:
-      # required for all workflows
-      security-events: read
-      actions: write
-      contents: write
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: "Build"
+      - name: "Build native"
         run: make build
         working-directory: "."
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref_name }}
-          release_name: ${{ github.ref_name }}
-          draft: false
-          prerelease: false
-        if: steps.test.outputs.exit_code == 0
+      - name: Setup System
+        run: sudo wget -O /usr/bin/ape https://cosmo.zip/pub/cosmos/bin/ape-$(uname -m).elf && sudo chmod +x /usr/bin/ape && sudo sh -c "echo ':APE:M::MZqFpD::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register" && sudo sh -c "echo ':APE-jart:M::jartsr::/usr/bin/ape:' >/proc/sys/fs/binfmt_misc/register"
 
-      - name: Upload Release Asset 386
-        id: upload-release-asset-386
-        uses: actions/upload-release-asset@v1
+      - name: "Build for all"
+        run: make setup-cosmocc && make build CC=./cosmocc/bin/cosmocc ARCH=all
+        working-directory: "."
+
+      - name: Create Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./cerve_${{ github.ref_name }}_x86_64
-          asset_name: cerve_${{ github.ref_name }}_x86_64
-          asset_content_type: binary/octet-stream
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create "$tag" \
+              --repo="$GITHUB_REPOSITORY" \
+              --title="$tag" \
+              --generate-notes
+
+      - name: Upload Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release upload "$tag" \
+            ./cerve_${{ github.ref_name }}_x86_64 \
+            ./cerve_${{ github.ref_name }}_all \
+            ./cerve_${{ github.ref_name }}_all.aarch64.elf \
+            ./cerve_${{ github.ref_name }}_all.com.dbg
+        working-directory: "."

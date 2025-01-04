@@ -1,6 +1,5 @@
 #include "../../../include/utils.h"
 #include "../../../include/server-configs.h"
-#include <bits/posix_opt.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>

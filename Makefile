@@ -39,6 +39,8 @@ dev: ## Build and run in debug mode
 build: 	## Build cerve
 	$(CC) $(PROD_FLAGS) $(CFLAGS) -o $(EXEC) $(ENTRY_POINT) $(SRCS)
 
+setup-cosmocc: # setup cosmocc
+	@mkdir -p cosmocc; cd cosmocc; wget https://cosmo.zip/pub/cosmocc/cosmocc.zip; unzip cosmocc.zip
 
 
 clean:	## Clean the mess created by build
